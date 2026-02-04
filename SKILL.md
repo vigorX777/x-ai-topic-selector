@@ -41,7 +41,6 @@ Agent 在执行前**必须检查**此文件是否存在：
   "topicCategory": "all",
   "maxTweets": 200,
   "topN": 10,
-  "outputDir": "./output",
   "lastUsed": "2025-02-01T12:00:00Z"
 }
 ```
@@ -52,10 +51,10 @@ Agent 在执行前**必须检查**此文件是否存在：
 
 为了提升交互体验，当 `config.json` 存在时，Agent 应遵循以下回填规则：
 
-1. **文本输入类**: 在 `question` 文本中包含 `📌 上次使用: <value>`，并在 `options` 中将该值作为第一个选项提供。
-2. **单选/多选类**: 在对应的选项 `label` 后添加 `(上次选择)` 标记。
-3. **自定义数值**: 如果上次使用的是自定义数值（不在预设选项中），应动态添加一个新选项。
-4. **API Key**: 如果已保存且用户选择 AI 模式，自动复用，无需再次输入。
+1. **单选类**: 在对应的选项 `label` 后添加 `(上次选择)` 标记。
+2. **自定义数值**: 如果上次使用的是自定义数值（不在预设选项中），应动态添加一个新选项。
+3. **API Key**: 如果已保存且用户选择 AI 模式，自动复用，无需再次输入。
+4. **列表 URL**: 在 `question` 文本中包含 `📌 上次使用: <value>`，并在 `options` 中将该值作为第一个选项提供。
 
 ---
 
@@ -84,10 +83,6 @@ question({
     question: "检测到上次使用的配置：\n\n• 内容来源: ${config.sourceType || 'list'}\n• 列表 URL: ${config.listUrls.join(', ')}\n• 评分模式: ${config.scoreMode}\n• 扫描数量: ${config.maxTweets}\n• 推荐数量: ${config.topN}\n\n请选择操作：",
     options: [
       { label: "使用上次配置直接运行 (Recommended)", description: "使用所有已保存的参数立即开始" },
-      { label: "修改内容来源", description: "更换内容来源 (List/Home/Bookmarks)" },
-      { label: "修改评分模式", description: "切换纯数据/混合/AI模式" },
-      { label: "修改扫描数量", description: "调整要扫描的推文数量" },
-      { label: "修改推荐数量", description: "调整推荐选题的数量" },
       { label: "重新配置全部", description: "从头开始配置所有参数" }
     ]
   }]
@@ -95,11 +90,7 @@ question({
 ```
 
 **处理逻辑**:
-- "使用上次配置直接运行" → 跳到 Step 7 执行
-- "修改内容来源" → 只执行 Step 2，其他参数复用
-- "修改评分模式" → 只执行 Step 3，其他参数复用
-- "修改扫描数量" → 只执行 Step 4，其他参数复用
-- "修改推荐数量" → 只执行 Step 5，其他参数复用
+- "使用上次配置直接运行" → 跳到 Step 3 执行
 - "重新配置全部" → 从 Step 1 开始完整流程
 
 ### Step 1: 欢迎 + 登录提示
@@ -116,33 +107,86 @@ question({
 首次运行时，脚本会打开 Chrome 窗口，请在窗口中完成登录（登录状态会被保存）。
 ```
 
-### Step 2: 选择内容来源
+### Step 2: 一次性收集所有参数
 
-使用 `question()` 工具询问：
+**核心设计**: 将所有参数放在单次 `question()` 调用中，用户可以一次性完成所有配置。
+
+使用 `question()` 工具一次性询问所有参数：
 
 ```
 question({
-  questions: [{
-    header: "内容来源",
-    question: "请选择要扫描的内容来源",
-    options: [
-      { label: `X 列表 (List)${config?.sourceType === 'list' ? ' (上次选择)' : ''}`, description: "扫描指定的 Twitter 列表" },
-      { label: `推荐 (For You)${config?.sourceType === 'home' ? ' (上次选择)' : ''}`, description: "扫描 X 推荐的内容" },
-      { label: `书签 (Bookmarks)${config?.sourceType === 'bookmarks' ? ' (上次选择)' : ''}`, description: "扫描你收藏的推文" }
-    ]
-  }]
+  questions: [
+    // Q1: 内容来源
+    {
+      header: "内容来源",
+      question: "请选择要扫描的内容来源",
+      options: [
+        { label: `X 列表 (List)${config?.sourceType === 'list' ? ' (上次选择)' : ''}`, description: "扫描指定的 Twitter 列表，选择后需要输入列表 URL" },
+        { label: `推荐 (For You)${config?.sourceType === 'home' ? ' (上次选择)' : ''}`, description: "扫描 X 推荐的内容" },
+        { label: `书签 (Bookmarks)${config?.sourceType === 'bookmarks' ? ' (上次选择)' : ''}`, description: "扫描你收藏的推文" }
+      ]
+    },
+    // Q2: 评分模式
+    {
+      header: "评分模式",
+      question: "请选择选题评分模式",
+      options: [
+        { 
+          label: `数据分析模式 (Recommended)${config?.scoreMode === 'data-only' ? ' (上次选择)' : ''}`, 
+          description: "基于互动数据评分，无需 API Key" 
+        },
+        { 
+          label: `AI 分析模式${config?.scoreMode === 'ai-only' ? ' (上次选择)' : ''}`, 
+          description: "基于 AI 内容分析，需要 Gemini API Key" 
+        }
+      ]
+    },
+    // Q3: 选题范围
+    {
+      header: "选题范围",
+      question: "请选择要关注的选题范围",
+      options: [
+        { label: `不限 (Recommended)${config?.topicCategory === 'all' ? ' (上次选择)' : ''}`, description: "显示所有类型的选题" },
+        { label: `AI 工具/产品发布${config?.topicCategory === 'ai-tools' ? ' (上次选择)' : ''}`, description: "新工具、新功能、产品更新" },
+        { label: `行业新闻/动态${config?.topicCategory === 'industry-news' ? ' (上次选择)' : ''}`, description: "公司动态、融资、并购等" },
+        { label: `技术突破/论文${config?.topicCategory === 'tech-breakthroughs' ? ' (上次选择)' : ''}`, description: "新研究、技术创新" },
+        { label: `教程/实用技巧${config?.topicCategory === 'tutorials' ? ' (上次选择)' : ''}`, description: "使用指南、最佳实践" },
+        { label: `争议/讨论话题${config?.topicCategory === 'controversial' ? ' (上次选择)' : ''}`, description: "行业争论、热点讨论" }
+      ]
+    },
+    // Q4: 扫描数量
+    {
+      header: "扫描数量",
+      question: "请选择要扫描的推文数量",
+      options: [
+        ...(config && ![100, 200, 500].includes(config.maxTweets) ? [{ label: `${config.maxTweets} 条 (上次选择)`, description: "使用上次自定义的扫描数量" }] : []),
+        { label: `100 条${config?.maxTweets === 100 ? ' (上次选择)' : ''}`, description: "快速扫描，约 1-2 分钟" },
+        { label: `200 条 (Recommended)${config?.maxTweets === 200 ? ' (上次选择)' : ''}`, description: "标准扫描，约 2-4 分钟" },
+        { label: `500 条${config?.maxTweets === 500 ? ' (上次选择)' : ''}`, description: "深度扫描，约 5-8 分钟" }
+      ]
+    },
+    // Q5: 推荐条数
+    {
+      header: "推荐条数",
+      question: "请选择要推荐的选题数量",
+      options: [
+        ...(config && ![5, 10, 20].includes(config.topN) ? [{ label: `${config.topN} 条 (上次选择)`, description: "使用上次自定义的推荐条数" }] : []),
+        { label: `5 条${config?.topN === 5 ? ' (上次选择)' : ''}`, description: "精选推荐" },
+        { label: `10 条 (Recommended)${config?.topN === 10 ? ' (上次选择)' : ''}`, description: "标准推荐" },
+        { label: `20 条${config?.topN === 20 ? ' (上次选择)' : ''}`, description: "扩展推荐" }
+      ]
+    }
+  ]
 })
 ```
 
-**后续处理**：
-- 如果选择"X 列表"，继续询问列表 URL（Step 2b）
-- 其他选项直接使用对应的固定 URL:
-  - For You: `https://x.com/home`
-  - Bookmarks: `https://x.com/i/bookmarks`
+### Step 2b: 条件性补充收集
 
-### Step 2b: 输入列表 URL（条件性）
+根据 Step 2 的选择结果，可能需要补充收集以下信息：
 
-仅当用户选择"X 列表"时询问：
+#### 如果选择了 "X 列表 (List)"
+
+需要继续询问列表 URL：
 
 ```
 question({
@@ -155,148 +199,37 @@ question({
 ```
 
 **验证规则**：
-- URL 必须包含 `x.com/i/lists/`、`twitter.com/i/lists/`、`/home` 或 `/bookmarks`
-- 或者是纯数字 ID (仅限列表)
+- URL 必须包含 `x.com/i/lists/`、`twitter.com/i/lists/`
+- 或者是纯数字 ID
 - 多个列表 URL 用逗号分隔
 
-### Step 3: 选择评分模式
+**其他来源的 URL**:
+- 推荐 (For You): `https://x.com/home`
+- 书签 (Bookmarks): `https://x.com/i/bookmarks`
 
-使用 `question()` 工具询问：
+#### 如果选择了 "AI 分析模式" 且配置中没有已保存的 API Key
 
-```
-question({
-  questions: [{
-    header: "评分模式",
-    question: "请选择选题评分模式",
-    options: [
-      { 
-        label: `数据分析模式 (Recommended)${config?.scoreMode === 'data-only' ? ' (上次选择)' : ''}`, 
-        description: "基于互动数据评分：点赞×1 + 转发×3 + 评论×2 + 浏览量×0.01，无需 API Key" 
-      },
-      { 
-        label: `AI 分析模式${config?.scoreMode === 'ai-only' ? ' (上次选择)' : ''}`, 
-        description: "基于 AI 内容分析（创新度 + 影响力 + 实用性），需要 Gemini API Key" 
-      }
-    ]
-  }]
-})
-```
-
-**后续处理**：
-- 如果用户选择"AI 分析模式"：
-  - 如果 `config.geminiApiKey` 已存在，直接复用，跳过 Step 3b
-  - 如果不存在，继续询问 Gemini API Key（Step 3b）
-- 如果选择"数据分析模式"，跳过 API Key 步骤
-
-### Step 3b: 收集 Gemini API Key（条件性）
-
-仅当用户选择 AI 模式**且**配置中没有已保存的 API Key 时询问：
+需要继续询问 Gemini API Key：
 
 ```
 question({
   questions: [{
     header: "Gemini API Key",
-    question: "请输入您的 Gemini API Key\n\n获取方式：访问 https://aistudio.google.com/apikey 创建 API Key",
-    options: []
+    question: "请输入您的 Gemini API Key\n\n获取方式：访问 https://aistudio.google.com/apikey 创建 API Key${config?.geminiApiKey ? '\n\n📌 检测到已保存的 API Key，可直接回车复用' : ''}",
+    options: config?.geminiApiKey ? [{ label: "使用已保存的 API Key", description: "复用上次保存的 Gemini API Key" }] : []
   }]
 })
 ```
 
 **注意**: 如果 `config.geminiApiKey` 已存在，跳过此步骤，直接使用已保存的 Key。
-```
 
-### Step 3c: 选择选题范围
-
-使用 `question()` 工具询问：
-
-```
-question({
-  questions: [{
-    header: "选题范围",
-    question: "请选择要关注的选题范围",
-    options: [
-      { label: `AI 工具/产品发布${config?.topicCategory === 'ai-tools' ? ' (上次选择)' : ''}`, description: "新工具、新功能、产品更新" },
-      { label: `行业新闻/动态${config?.topicCategory === 'industry-news' ? ' (上次选择)' : ''}`, description: "公司动态、融资、并购等" },
-      { label: `技术突破/论文${config?.topicCategory === 'tech-breakthroughs' ? ' (上次选择)' : ''}`, description: "新研究、技术创新" },
-      { label: `教程/实用技巧${config?.topicCategory === 'tutorials' ? ' (上次选择)' : ''}`, description: "使用指南、最佳实践" },
-      { label: `争议/讨论话题${config?.topicCategory === 'controversial' ? ' (上次选择)' : ''}`, description: "行业争论、热点讨论" },
-      { label: `不限 (Recommended)${config?.topicCategory === 'all' ? ' (上次选择)' : ''}`, description: "显示所有类型的选题" }
-    ]
-  }]
-})
-```
-
-### Step 4: 选择扫描推文数量
-
-使用 `question()` 工具询问：
-
-```
-question({
-  questions: [{
-    header: "扫描数量",
-    question: "请选择要扫描的推文数量",
-    options: [
-      ...(config && ![100, 200, 500].includes(config.maxTweets) ? [{ label: `${config.maxTweets} 条 (上次选择)`, description: "使用上次自定义的扫描数量" }] : []),
-      { label: `100 条${config?.maxTweets === 100 ? ' (上次选择)' : ''}`, description: "快速扫描，约 1-2 分钟" },
-      { label: `200 条 (Recommended)${config?.maxTweets === 200 ? ' (上次选择)' : ''}`, description: "标准扫描，约 2-4 分钟" },
-      { label: `500 条${config?.maxTweets === 500 ? ' (上次选择)' : ''}`, description: "深度扫描，约 5-8 分钟" }
-    ]
-  }]
-})
-```
-
-用户也可以通过自定义输入指定其他数量。
-
-### Step 5: 选择推荐条数
-
-使用 `question()` 工具询问：
-
-```
-question({
-  questions: [{
-    header: "推荐条数",
-    question: "请选择要推荐的选题数量",
-    options: [
-      ...(config && ![5, 10, 20].includes(config.topN) ? [{ label: `${config.topN} 条 (上次选择)`, description: "使用上次自定义的推荐条数" }] : []),
-      { label: `5 条${config?.topN === 5 ? ' (上次选择)' : ''}`, description: "精选推荐" },
-      { label: `10 条 (Recommended)${config?.topN === 10 ? ' (上次选择)' : ''}`, description: "标准推荐" },
-      { label: `20 条${config?.topN === 20 ? ' (上次选择)' : ''}`, description: "扩展推荐" }
-    ]
-  }]
-})
-```
-
-用户也可以通过自定义输入指定其他数量。
-
-### Step 6: 选择输出目录
-
-使用 `question()` 工具询问：
-
-```
-question({
-  questions: [{
-    header: "输出目录",
-    question: "请选择报告输出位置",
-    options: [
-      { label: "当前项目 output/ 目录 (Recommended)", description: "输出到当前工作目录下的 output 文件夹" },
-      ...(config && config.outputDir && !config.outputDir.endsWith('/output') ? [{ label: `自定义路径: ${config.outputDir} (上次使用)`, description: "使用上次自定义的输出路径" }] : []),
-      { label: "自定义路径", description: "指定其他输出目录" }
-    ]
-  }]
-})
-```
-
-**后续处理**：
-- 如果选择"自定义路径"，继续询问具体路径
-- 如果选择"当前项目 output/ 目录"，使用当前工作目录 + `/output`
-
-### Step 7: 执行脚本
+### Step 3: 执行脚本
 
 收集完所有参数后，Agent 构建并执行命令：
 
 ```bash
-# 确保输出目录存在
-mkdir -p <output_dir>
+# 确保输出目录存在（默认使用当前工作目录下的 output 文件夹）
+mkdir -p ./output
 
 # 设置环境变量（如果需要 AI 模式）
 export GEMINI_API_KEY="用户提供的key"
@@ -308,14 +241,14 @@ bun run ${SKILL_DIR}/scripts/x-topic-selector.ts \
   --max-tweets <count> \
   --topic-category <category> \
   --top-n <n> \
-  --output <output_dir>/topic-report-{timestamp}.md
+  --output ./output/topic-report-{timestamp}.md
 ```
 
 **多个 URL 处理**：
 - 对于多个列表 URL，依次执行脚本
 - 每个列表生成独立的报告文件
 
-### Step 7b: 保存配置
+### Step 3b: 保存配置
 
 执行成功后，**必须保存配置**以便下次复用：
 
@@ -333,7 +266,6 @@ cat > ~/.x-topic-selector/config.json << 'EOF'
   "topicCategory": "<category>",
   "maxTweets": <count>,
   "topN": <n>,
-  "outputDir": "<output_dir>",
   "lastUsed": "<当前ISO时间戳>"
 }
 EOF
@@ -343,7 +275,7 @@ EOF
 - API Key 会保存到配置文件，下次使用 AI 模式时自动复用
 - `lastUsed` 使用 ISO 8601 格式（如 `2025-02-01T12:00:00Z`）
 
-### Step 8: 结果展示
+### Step 4: 结果展示
 
 执行完成后，向用户展示：
 
