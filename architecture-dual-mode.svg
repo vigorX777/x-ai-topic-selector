@@ -1,139 +1,217 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1100">
-  <!-- Define styles -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
   <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8f9fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e9ecef;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="gradientScan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4caf50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2e7d32;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="gradientBookmark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e91e63;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ad1457;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="gradientEntry" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2196f3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1565c0;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="gradientOutput" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00acc1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00838f;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Filters -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dx="0" dy="4" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.2"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="shadowLight" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.15"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Arrow markers -->
+    <marker id="arrowGray" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <polygon points="0 0, 12 6, 0 12" fill="#607d8b" />
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <polygon points="0 0, 12 6, 0 12" fill="#4caf50" />
+    </marker>
+    <marker id="arrowPink" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <polygon points="0 0, 12 6, 0 12" fill="#e91e63" />
+    </marker>
+    
+    <!-- Styles -->
     <style>
-      .title { font: bold 24px sans-serif; fill: #1a1a1a; }
-      .subtitle { font: bold 16px sans-serif; fill: #4a4a4a; }
-      .label { font: 14px sans-serif; fill: #2a2a2a; }
-      .small { font: 12px sans-serif; fill: #5a5a5a; }
-      .box { fill: #f8f9fa; stroke: #2c3e50; stroke-width: 2; rx: 8; }
-      .box-entry { fill: #e3f2fd; stroke: #1976d2; stroke-width: 2; rx: 8; }
-      .box-source { fill: #fff3e0; stroke: #f57c00; stroke-width: 2; rx: 8; }
-      .box-scan { fill: #e8f5e9; stroke: #388e3c; stroke-width: 2; rx: 8; }
-      .box-bookmark { fill: #fce4ec; stroke: #c2185b; stroke-width: 2; rx: 8; }
-      .box-ai { fill: #f3e5f5; stroke: #7b1fa2; stroke-width: 2; rx: 8; }
-      .box-report { fill: #e0f2f1; stroke: #00796b; stroke-width: 2; rx: 8; }
-      .arrow { stroke: #34495e; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
-      .arrow-scan { stroke: #388e3c; stroke-width: 2; fill: none; marker-end: url(#arrowhead-scan); }
-      .arrow-bookmark { stroke: #c2185b; stroke-width: 2; fill: none; marker-end: url(#arrowhead-bookmark); }
-      .decision { fill: #fff9c4; stroke: #f57f17; stroke-width: 2; }
-      .tag { font: bold 11px sans-serif; fill: white; }
-      .tag-rect-scan { fill: #388e3c; rx: 4; }
-      .tag-rect-bookmark { fill: #c2185b; rx: 4; }
+      .title { font: bold 56px 'Segoe UI', Arial, sans-serif; fill: #1a1a1a; }
+      .subtitle { font: 32px 'Segoe UI', Arial, sans-serif; fill: #455a64; }
+      .heading { font: bold 28px 'Segoe UI', Arial, sans-serif; fill: white; }
+      .label { font: bold 22px 'Segoe UI', Arial, sans-serif; fill: #2c3e50; }
+      .text { font: 18px 'Segoe UI', Arial, sans-serif; fill: #37474f; }
+      .small { font: 16px 'Segoe UI', Arial, sans-serif; fill: #546e7a; }
+      .badge { font: bold 16px 'Segoe UI', Arial, sans-serif; fill: white; }
+      .icon { font: bold 32px 'Segoe UI', Arial, sans-serif; }
+      
+      .box-white { fill: white; stroke: none; rx: 12; filter: url(#shadow); }
+      .box-primary { fill: url(#gradientEntry); stroke: none; rx: 12; filter: url(#shadow); }
+      .box-scan { fill: url(#gradientScan); stroke: none; rx: 12; filter: url(#shadow); }
+      .box-bookmark { fill: url(#gradientBookmark); stroke: none; rx: 12; filter: url(#shadow); }
+      .box-output { fill: url(#gradientOutput); stroke: none; rx: 12; filter: url(#shadow); }
+      .box-card { fill: white; stroke: #e0e0e0; stroke-width: 2; rx: 8; filter: url(#shadowLight); }
+      
+      .decision-diamond { fill: #fff3e0; stroke: #ff6f00; stroke-width: 3; filter: url(#shadow); }
+      
+      .arrow { stroke: #607d8b; stroke-width: 3; fill: none; marker-end: url(#arrowGray); }
+      .arrow-scan { stroke: #4caf50; stroke-width: 4; fill: none; marker-end: url(#arrowGreen); }
+      .arrow-bookmark { stroke: #e91e63; stroke-width: 4; fill: none; marker-end: url(#arrowPink); }
+      
+      .badge-scan { fill: #4caf50; rx: 6; }
+      .badge-bookmark { fill: #e91e63; rx: 6; }
+      .badge-ai { fill: #9c27b0; rx: 6; }
     </style>
-    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-      <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
-    </marker>
-    <marker id="arrowhead-scan" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-      <polygon points="0 0, 10 3, 0 6" fill="#388e3c" />
-    </marker>
-    <marker id="arrowhead-bookmark" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-      <polygon points="0 0, 10 3, 0 6" fill="#c2185b" />
-    </marker>
   </defs>
-
-  <!-- Title -->
-  <text x="700" y="40" text-anchor="middle" class="title">X AI Topic Selector - 双模式架构</text>
-  <text x="700" y="65" text-anchor="middle" class="subtitle">Dual-Mode Architecture: Scan &amp; Filter vs. Bookmark Extract</text>
-
-  <!-- Entry Point -->
-  <rect x="600" y="90" width="200" height="60" class="box-entry"/>
-  <text x="700" y="115" text-anchor="middle" class="label">入口点 (Entry)</text>
-  <text x="700" y="135" text-anchor="middle" class="small">/select-topics</text>
-
-  <!-- Source Selection Decision -->
-  <path d="M 700 150 L 700 180" class="arrow"/>
-  <polygon points="650,200 750,200 800,250 750,300 650,300 600,250" class="decision"/>
-  <text x="700" y="240" text-anchor="middle" class="label">选择内容来源</text>
-  <text x="700" y="260" text-anchor="middle" class="small">(Source Type)</text>
-  <text x="700" y="280" text-anchor="middle" class="small">Lists / Home / Bookmarks</text>
-
-  <!-- Branch Split -->
-  <path d="M 600 250 L 300 250 L 300 340" class="arrow-scan"/>
-  <path d="M 800 250 L 1100 250 L 1100 340" class="arrow-bookmark"/>
-
-  <!-- LEFT BRANCH: SCAN MODE -->
-  <rect x="40" y="320" width="240" height="40" class="tag-rect-scan"/>
-  <text x="160" y="345" text-anchor="middle" class="tag">扫描过滤模式 (SCAN &amp; FILTER)</text>
-
-  <!-- Scan: Chrome Scraping -->
-  <rect x="150" y="375" width="300" height="80" class="box-scan"/>
-  <text x="300" y="400" text-anchor="middle" class="label">Chrome CDP 抓取</text>
-  <text x="300" y="420" text-anchor="middle" class="small">• 滚动页面加载推文</text>
-  <text x="300" y="436" text-anchor="middle" class="small">• Thread 并行展开 (3 并发)</text>
-  <text x="300" y="452" text-anchor="middle" class="small">• 长文本自动展开</text>
-
-  <!-- Scan: Scoring -->
-  <path d="M 300 455 L 300 485" class="arrow-scan"/>
-  <rect x="150" y="485" width="300" height="100" class="box-scan"/>
-  <text x="300" y="510" text-anchor="middle" class="label">评分处理</text>
-  <text x="300" y="530" text-anchor="middle" class="small">数据模式: 点赞×1 + 转发×3 + 评论×2</text>
-  <text x="300" y="550" text-anchor="middle" class="small">AI 模式: Gemini API 三维评分</text>
-  <text x="300" y="570" text-anchor="middle" class="small">(创新性 + 实用性 + 影响力)</text>
-
-  <!-- Scan: Filtering -->
-  <path d="M 300 585 L 300 615" class="arrow-scan"/>
-  <rect x="150" y="615" width="300" height="100" class="box-scan"/>
-  <text x="300" y="640" text-anchor="middle" class="label">过滤与排名</text>
-  <text x="300" y="660" text-anchor="middle" class="small">• 关键词过滤 (keywords/exclude)</text>
-  <text x="300" y="680" text-anchor="middle" class="small">• 分类过滤 (6 种类别)</text>
-  <text x="300" y="700" text-anchor="middle" class="small">• Top N 截断 (5/10/20)</text>
-
-  <!-- RIGHT BRANCH: BOOKMARK MODE -->
-  <rect x="980" y="320" width="240" height="40" class="tag-rect-bookmark"/>
-  <text x="1100" y="345" text-anchor="middle" class="tag">书签提取模式 (BOOKMARK EXTRACT)</text>
-
-  <!-- Bookmark: Chrome Scraping -->
-  <rect x="950" y="375" width="300" height="80" class="box-bookmark"/>
-  <text x="1100" y="400" text-anchor="middle" class="label">Chrome CDP 抓取</text>
-  <text x="1100" y="420" text-anchor="middle" class="small">• 滚动书签页加载内容</text>
-  <text x="1100" y="436" text-anchor="middle" class="small">• Thread 并行展开 (3 并发)</text>
-  <text x="1100" y="452" text-anchor="middle" class="small">• 长文本自动展开</text>
-
-  <!-- Bookmark: AI Analysis ONLY -->
-  <path d="M 1100 455 L 1100 485" class="arrow-bookmark"/>
-  <rect x="950" y="485" width="300" height="100" class="box-bookmark"/>
-  <text x="1100" y="510" text-anchor="middle" class="label">AI 深度分析 (强制)</text>
-  <text x="1100" y="530" text-anchor="middle" class="small">Gemini API 批量分析 (5 条/批)</text>
-  <text x="1100" y="550" text-anchor="middle" class="small">• 三维评分 (创新性/实用性/影响力)</text>
-  <text x="1100" y="570" text-anchor="middle" class="small">• 摘要 + 翻译 + 分类 + 标题</text>
-
-  <!-- Bookmark: NO Filtering -->
-  <path d="M 1100 585 L 1100 615" class="arrow-bookmark"/>
-  <rect x="950" y="615" width="300" height="100" class="box-bookmark"/>
-  <text x="1100" y="640" text-anchor="middle" class="label">保留全部内容</text>
-  <text x="1100" y="660" text-anchor="middle" class="small">✗ 无关键词过滤</text>
-  <text x="1100" y="680" text-anchor="middle" class="small">✗ 无分类过滤</text>
-  <text x="1100" y="700" text-anchor="middle" class="small">✗ 无 Top N 截断</text>
-
-  <!-- Merge to Report Generation -->
-  <path d="M 300 715 L 300 770 L 600 770" class="arrow-scan"/>
-  <path d="M 1100 715 L 1100 770 L 800 770" class="arrow-bookmark"/>
   
-  <!-- Report Generation -->
-  <rect x="600" y="790" width="200" height="80" class="box-report"/>
-  <text x="700" y="815" text-anchor="middle" class="label">生成报告</text>
-  <text x="700" y="835" text-anchor="middle" class="small">Markdown 格式</text>
-  <text x="700" y="855" text-anchor="middle" class="small">互动热度 + 关键词统计</text>
-
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#bgGradient)"/>
+  
+  <!-- Title Section -->
+  <text x="960" y="80" text-anchor="middle" class="title">X AI Topic Selector</text>
+  <text x="960" y="125" text-anchor="middle" class="subtitle">双模式智能架构：扫描过滤 vs. 书签提取</text>
+  
+  <!-- Entry Point -->
+  <rect x="760" y="170" width="400" height="100" class="box-primary"/>
+  <text x="960" y="205" text-anchor="middle" class="heading">🚀 入口点</text>
+  <text x="960" y="245" text-anchor="middle" style="font: 22px 'Segoe UI'; fill: white;">/select-topics</text>
+  
+  <!-- Arrow down -->
+  <path d="M 960 270 L 960 320" class="arrow"/>
+  
+  <!-- Decision Diamond -->
+  <g>
+    <path d="M 960 320 L 1120 380 L 960 440 L 800 380 Z" class="decision-diamond"/>
+    <text x="960" y="375" text-anchor="middle" class="label">选择内容来源</text>
+    <text x="960" y="405" text-anchor="middle" class="text">Lists / Home / Bookmarks</text>
+  </g>
+  
+  <!-- Split arrows -->
+  <path d="M 800 380 L 480 380 L 480 480" class="arrow-scan"/>
+  <path d="M 1120 380 L 1440 380 L 1440 480" class="arrow-bookmark"/>
+  
+  <!-- ========== LEFT: SCAN MODE ========== -->
+  <g id="scan-branch">
+    <!-- Mode Header -->
+    <rect x="120" y="480" width="720" height="80" class="box-scan"/>
+    <text x="480" y="530" text-anchor="middle" class="heading">📊 扫描过滤模式 (SCAN &amp; FILTER)</text>
+    
+    <!-- Step 1: Scraping -->
+    <rect x="140" y="590" width="680" height="120" class="box-card"/>
+    <rect x="150" y="600" width="100" height="36" class="badge-scan"/>
+    <text x="200" y="623" text-anchor="middle" class="badge">抓取</text>
+    <text x="200" y="650" text-anchor="start" class="label">Chrome CDP 采集</text>
+    <text x="200" y="680" text-anchor="start" class="text">• 滚动页面加载推文</text>
+    <text x="480" y="680" text-anchor="start" class="text">• Thread 并行展开 (3x)</text>
+    
+    <!-- Step 2: Scoring -->
+    <path d="M 480 710 L 480 740" class="arrow-scan"/>
+    <rect x="140" y="740" width="680" height="140" class="box-card"/>
+    <rect x="150" y="750" width="100" height="36" class="badge-ai"/>
+    <text x="200" y="773" text-anchor="middle" class="badge">评分</text>
+    <text x="200" y="805" text-anchor="start" class="label">智能评分</text>
+    <text x="200" y="835" text-anchor="start" class="text">数据模式：点赞×1 + 转发×3 + 评论×2</text>
+    <text x="200" y="865" text-anchor="start" class="text">AI 模式：创新性 + 实用性 + 影响力</text>
+    
+    <!-- Step 3: Filtering -->
+    <path d="M 480 880 L 480 910" class="arrow-scan"/>
+    <rect x="140" y="910" width="680" height="120" class="box-card"/>
+    <rect x="150" y="920" width="100" height="36" class="badge-scan"/>
+    <text x="200" y="943" text-anchor="middle" class="badge">过滤</text>
+    <text x="200" y="970" text-anchor="start" class="label">筛选排名</text>
+    <text x="200" y="1000" text-anchor="start" class="text">✓ 关键词过滤   ✓ 分类筛选   ✓ Top N 截断</text>
+  </g>
+  
+  <!-- ========== RIGHT: BOOKMARK MODE ========== -->
+  <g id="bookmark-branch">
+    <!-- Mode Header -->
+    <rect x="1080" y="480" width="720" height="80" class="box-bookmark"/>
+    <text x="1440" y="530" text-anchor="middle" class="heading">🔖 书签提取模式 (BOOKMARK EXTRACT)</text>
+    
+    <!-- Step 1: Scraping -->
+    <rect x="1100" y="590" width="680" height="120" class="box-card"/>
+    <rect x="1110" y="600" width="100" height="36" class="badge-bookmark"/>
+    <text x="1160" y="623" text-anchor="middle" class="badge">抓取</text>
+    <text x="1230" y="650" text-anchor="start" class="label">Chrome CDP 采集</text>
+    <text x="1230" y="680" text-anchor="start" class="text">• 滚动书签页加载内容</text>
+    <text x="1500" y="680" text-anchor="start" class="text">• Thread 并行展开 (3x)</text>
+    
+    <!-- Step 2: AI Analysis -->
+    <path d="M 1440 710 L 1440 740" class="arrow-bookmark"/>
+    <rect x="1100" y="740" width="680" height="140" class="box-card"/>
+    <rect x="1110" y="750" width="140" height="36" class="badge-ai"/>
+    <text x="1180" y="773" text-anchor="middle" class="badge">AI 分析</text>
+    <text x="1230" y="805" text-anchor="start" class="label">AI 深度分析（强制）</text>
+    <text x="1230" y="835" text-anchor="start" class="text">Gemini 批量分析 (5条/批)</text>
+    <text x="1230" y="865" text-anchor="start" class="text">三维评分 + 摘要 + 翻译 + 分类</text>
+    
+    <!-- Step 3: Keep All -->
+    <path d="M 1440 880 L 1440 910" class="arrow-bookmark"/>
+    <rect x="1100" y="910" width="680" height="120" class="box-card"/>
+    <rect x="1110" y="920" width="140" height="36" class="badge-bookmark"/>
+    <text x="1180" y="943" text-anchor="middle" class="badge">保留全部</text>
+    <text x="1230" y="970" text-anchor="start" class="label">完整保留</text>
+    <text x="1230" y="1000" text-anchor="start" class="text">✗ 无关键词过滤   ✗ 无分类筛选   ✗ 无数量截断</text>
+  </g>
+  
+  <!-- Merge to output -->
+  <path d="M 480 1030 L 480 1050 L 860 1050" class="arrow-scan"/>
+  <path d="M 1440 1030 L 1440 1050 L 1060 1050" class="arrow-bookmark"/>
+  
   <!-- Output -->
-  <path d="M 700 870 L 700 900" class="arrow"/>
-  <rect x="575" y="900" width="250" height="60" class="box-entry"/>
-  <text x="700" y="925" text-anchor="middle" class="label">输出结果</text>
-  <text x="700" y="945" text-anchor="middle" class="small">./output/topic-report-{timestamp}.md</text>
-
-  <!-- Legend -->
-  <text x="50" y="1000" class="subtitle">图例 (Legend)</text>
-  <rect x="50" y="1010" width="120" height="30" class="box-scan"/>
-  <text x="110" y="1030" text-anchor="middle" class="small">扫描过滤模式</text>
-  <rect x="180" y="1010" width="120" height="30" class="box-bookmark"/>
-  <text x="240" y="1030" text-anchor="middle" class="small">书签提取模式</text>
-  <rect x="310" y="1010" width="100" height="30" class="box-ai"/>
-  <text x="360" y="1030" text-anchor="middle" class="small">AI 分析</text>
-
-  <!-- Key Differences -->
-  <text x="50" y="1070" class="subtitle">核心差异</text>
-  <text x="50" y="1090" class="small">• 扫描模式: 关键词过滤 + 分类筛选 + Top N 截断 = 精选推荐</text>
-  <text x="550" y="1090" class="small">• 书签模式: 保留全部 + AI 辅助理解 = 完整内容日报</text>
-
+  <rect x="860" y="1020" width="200" height="60" class="box-output"/>
+  <text x="960" y="1050" text-anchor="middle" style="font: bold 20px 'Segoe UI'; fill: white;">📄 Markdown 报告</text>
+  
+  <!-- Legend Box -->
+  <g id="legend">
+    <rect x="1650" y="20" width="250" height="180" class="box-white"/>
+    <text x="1665" y="50" class="label">📖 图例</text>
+    
+    <rect x="1665" y="70" width="80" height="24" class="badge-scan"/>
+    <text x="1705" y="87" text-anchor="middle" style="font: 14px 'Segoe UI'; fill: white;">扫描模式</text>
+    
+    <rect x="1665" y="105" width="80" height="24" class="badge-bookmark"/>
+    <text x="1705" y="122" text-anchor="middle" style="font: 14px 'Segoe UI'; fill: white;">书签模式</text>
+    
+    <rect x="1665" y="140" width="80" height="24" class="badge-ai"/>
+    <text x="1705" y="157" text-anchor="middle" style="font: 14px 'Segoe UI'; fill: white;">AI 分析</text>
+  </g>
+  
+  <!-- Footer Notes -->
+  <g id="footer-notes">
+    <rect x="120" y="1045" width="680" height="5" class="badge-scan"/>
+    <text x="130" y="1070" class="small">扫描模式：关键词过滤 + 分类筛选 + Top N 截断 = 精选推荐</text>
+    
+    <rect x="1100" y="1045" width="680" height="5" class="badge-bookmark"/>
+    <text x="1110" y="1070" class="small">书签模式：AI 辅助理解 + 完整保留 = 内容整理日报</text>
+  </g>
+  
 </svg>
