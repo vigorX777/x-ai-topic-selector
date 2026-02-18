@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>README PPT 预览 - X AI Topic Selector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            font-size: 20px;
+            opacity: 0.8;
+        }
+        
+        .slide-container {
+            max-width: 1400px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 80px rgba(0,0,0,0.5);
+            margin-bottom: 40px;
+        }
+        
+        .slide-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .controls {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 1400px;
+            width: 100%;
+            margin-bottom: 40px;
+        }
+        
+        .controls h2 {
+            color: white;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 14px 32px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .info-section {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 1400px;
+            width: 100%;
+            color: white;
+        }
+        
+        .info-section h2 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: white;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .info-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .info-card h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+            color: #667eea;
+        }
+        
+        .info-card p {
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        .code-block {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin-top: 12px;
+            overflow-x: auto;
+        }
+        
+        .emoji {
+            font-size: 24px;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="header">
+        <h1>🎯 README PPT Slide</h1>
+        <p>AI 生成的专业演示文稿 · Powered by Gemini 2.5 Flash</p>
+    </div>
+    
+    <div class="slide-container">
+        <img src="readme-ppt-slide.png" alt="X AI Topic Selector PPT Slide">
+    </div>
+    
+    <div class="controls">
+        <h2>🚀 快速操作</h2>
+        <div class="button-group">
+            <a href="readme-ppt-slide.png" download class="btn btn-primary">
+                <span class="emoji">⬇️</span> 下载 PNG
+            </a>
+            <button onclick="window.open('readme-ppt-slide.png')" class="btn btn-secondary">
+                <span class="emoji">🔍</span> 全屏查看
+            </button>
+            <button onclick="copyToClipboard()" class="btn btn-secondary">
+                <span class="emoji">📋</span> 复制路径
+            </button>
+            <button onclick="openInFinder()" class="btn btn-secondary">
+                <span class="emoji">📁</span> 在 Finder 中打开
+            </button>
+        </div>
+    </div>
+    
+    <div class="info-section">
+        <h2>📊 生成信息</h2>
+        
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>🎨 图片规格</h3>
+                <p><strong>格式:</strong> PNG</p>
+                <p><strong>比例:</strong> 16:9 (PowerPoint 标准)</p>
+                <p><strong>分辨率:</strong> 1920×1080 (Full HD)</p>
+                <p><strong>生成器:</strong> Gemini 2.5 Flash Image</p>
+            </div>
+            
+            <div class="info-card">
+                <h3>💡 内容结构</h3>
+                <p><strong>标题区:</strong> 产品名 + 副标题</p>
+                <p><strong>三列布局:</strong> 核心功能 | AI 评分 | 技术特性</p>
+                <p><strong>底部横幅:</strong> 数据亮点 + 启动命令</p>
+                <p><strong>视觉风格:</strong> 紫色渐变 + 白色卡片</p>
+            </div>
+            
+            <div class="info-card">
+                <h3>🎯 使用场景</h3>
+                <p>✅ 投资人演示 / 产品汇报</p>
+                <p>✅ 团队分享 / 培训教学</p>
+                <p>✅ 营销宣传 / 社交媒体</p>
+                <p>✅ 文档配图 / GitHub README</p>
+            </div>
+            
+            <div class="info-card">
+                <h3>🔧 导入到 PPT</h3>
+                <p><strong>PowerPoint:</strong> 插入 → 图片 → 此设备</p>
+                <p><strong>Keynote:</strong> 拖拽 PNG 到幻灯片</p>
+                <p><strong>Google Slides:</strong> 插入 → 图片 → 上传</p>
+                <p><strong>提示:</strong> 设置为全屏背景效果最佳</p>
+            </div>
+        </div>
+        
+        <h2 style="margin-top: 40px;">📁 文件路径</h2>
+        <div class="code-block" id="filePath">
+/Users/vigor/.claude/skills/x-ai-topic-selector/readme-ppt-slide.png
+        </div>
+        
+        <h2 style="margin-top: 40px;">🔄 修改图片</h2>
+        <p style="margin-bottom: 12px;">如果需要调整图片内容，可以使用以下命令：</p>
+        <div class="code-block">
+# 继续编辑当前图片
+nano-banana_continue_editing("修改描述，例如：调整配色为蓝色渐变")
+
+# 或重新生成
+nano-banana_generate_image("新的 prompt 描述...")
+        </div>
+    </div>
+    
+    <script>
+        function copyToClipboard() {
+            const path = '/Users/vigor/.claude/skills/x-ai-topic-selector/readme-ppt-slide.png';
+            navigator.clipboard.writeText(path).then(() => {
+                alert('✅ 路径已复制到剪贴板！');
+            });
+        }
+        
+        function openInFinder() {
+            alert('💡 请在终端运行: open /Users/vigor/.claude/skills/x-ai-topic-selector');
+        }
+    </script>
+    
+</body>
+</html>

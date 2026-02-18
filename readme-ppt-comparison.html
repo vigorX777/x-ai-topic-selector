@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>README PPT 对比预览 - X AI Topic Selector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .header h1 {
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #5B4FFF 0%, #00E5FF 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            font-size: 24px;
+            opacity: 0.8;
+        }
+        
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+        
+        @media (max-width: 1200px) {
+            .comparison-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .version-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .version-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 60px rgba(91, 79, 255, 0.3);
+            border-color: rgba(91, 79, 255, 0.5);
+        }
+        
+        .version-header {
+            padding: 30px;
+            background: rgba(91, 79, 255, 0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .version-header h2 {
+            font-size: 32px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .version-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #5B4FFF 0%, #764ba2 100%);
+        }
+        
+        .premium-badge {
+            background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%);
+            color: #000;
+        }
+        
+        .version-header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .image-container {
+            padding: 20px;
+            background: #000;
+        }
+        
+        .image-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 12px;
+        }
+        
+        .version-specs {
+            padding: 30px;
+        }
+        
+        .spec-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .spec-item:last-child {
+            border-bottom: none;
+        }
+        
+        .spec-label {
+            opacity: 0.7;
+            font-size: 14px;
+        }
+        
+        .spec-value {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+            margin-bottom: 60px;
+        }
+        
+        .feature-card {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .feature-card h3 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #5B4FFF;
+        }
+        
+        .feature-list {
+            list-style: none;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .feature-list li:before {
+            content: "✓";
+            color: #00E5FF;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        
+        .cta-section {
+            text-align: center;
+            background: rgba(91, 79, 255, 0.1);
+            border-radius: 24px;
+            padding: 60px 40px;
+            border: 1px solid rgba(91, 79, 255, 0.3);
+        }
+        
+        .cta-section h2 {
+            font-size: 40px;
+            margin-bottom: 24px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 18px 40px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-premium {
+            background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%);
+            color: #000;
+        }
+        
+        .btn-premium:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(212, 175, 55, 0.4);
+        }
+        
+        .btn-standard {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .btn-standard:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .emoji {
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="container">
+        
+        <div class="header">
+            <h1>🎨 README PPT 版本对比</h1>
+            <p>标准版 vs 高级版 · AI 生成专业演示文稿</p>
+        </div>
+        
+        <div class="comparison-container">
+            
+            <!-- Version 1: Standard -->
+            <div class="version-card">
+                <div class="version-header">
+                    <h2>
+                        📊 标准版
+                        <span class="version-badge">v1.0</span>
+                    </h2>
+                    <p>清晰实用，信息全面</p>
+                </div>
+                
+                <div class="image-container">
+                    <img src="readme-ppt-slide.png" alt="Standard Version">
+                </div>
+                
+                <div class="version-specs">
+                    <div class="spec-item">
+                        <span class="spec-label">文件大小</span>
+                        <span class="spec-value">563 KB</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">生成时间</span>
+                        <span class="spec-value">~15 秒</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">风格</span>
+                        <span class="spec-value">紫色渐变 + 白色卡片</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">内容密度</span>
+                        <span class="spec-value">高 (详细功能列表)</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">适用场景</span>
+                        <span class="spec-value">技术分享、内部培训</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Version 2: Premium -->
+            <div class="version-card">
+                <div class="version-header">
+                    <h2>
+                        ✨ 高级版
+                        <span class="version-badge premium-badge">PREMIUM</span>
+                    </h2>
+                    <p>奢华设计，高端商务感</p>
+                </div>
+                
+                <div class="image-container">
+                    <img src="readme-ppt-premium.png" alt="Premium Version">
+                </div>
+                
+                <div class="version-specs">
+                    <div class="spec-item">
+                        <span class="spec-label">文件大小</span>
+                        <span class="spec-value">606 KB</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">生成时间</span>
+                        <span class="spec-value">~20 秒</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">风格</span>
+                        <span class="spec-value">深紫渐变 + 玻璃态 + 金色点缀</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">内容密度</span>
+                        <span class="spec-value">精炼 (核心要点)</span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">适用场景</span>
+                        <span class="spec-value">投资演示、高层汇报</span>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <div class="features-grid">
+            
+            <div class="feature-card">
+                <h3>🎨 设计差异</h3>
+                <ul class="feature-list">
+                    <li><strong>标准版:</strong> 明亮紫色，卡片式布局</li>
+                    <li><strong>高级版:</strong> 深色背景，玻璃态效果</li>
+                    <li><strong>高级版:</strong> 金色装饰元素</li>
+                    <li><strong>高级版:</strong> 更强的视觉层次</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h3>📝 内容展示</h3>
+                <ul class="feature-list">
+                    <li><strong>标准版:</strong> 详细功能列表</li>
+                    <li><strong>标准版:</strong> 三列布局，信息密集</li>
+                    <li><strong>高级版:</strong> 精炼核心卖点</li>
+                    <li><strong>高级版:</strong> 全中文展示</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <h3>🎯 使用建议</h3>
+                <ul class="feature-list">
+                    <li><strong>技术培训:</strong> 使用标准版</li>
+                    <li><strong>投资演示:</strong> 使用高级版</li>
+                    <li><strong>产品介绍:</strong> 两版本皆可</li>
+                    <li><strong>社交媒体:</strong> 使用高级版</li>
+                </ul>
+            </div>
+            
+        </div>
+        
+        <div class="cta-section">
+            <h2>🚀 选择您需要的版本</h2>
+            <p style="font-size: 18px; opacity: 0.9; margin-top: 16px;">
+                两个版本都是 Full HD (1920×1080)，可直接用于 PowerPoint/Keynote
+            </p>
+            
+            <div class="button-group">
+                <a href="readme-ppt-premium.png" download class="btn btn-premium">
+                    <span class="emoji">⭐</span> 下载高级版
+                </a>
+                <a href="readme-ppt-slide.png" download class="btn btn-standard">
+                    <span class="emoji">📊</span> 下载标准版
+                </a>
+            </div>
+            
+            <p style="margin-top: 40px; font-size: 16px; opacity: 0.7;">
+                💡 提示: 可以在 PPT 中同时使用两个版本，根据不同章节选择不同风格
+            </p>
+        </div>
+        
+    </div>
+    
+</body>
+</html>
