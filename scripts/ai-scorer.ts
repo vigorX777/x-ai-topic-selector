@@ -31,6 +31,7 @@ export interface AIScoreResult {
   title?: string;            // AI 生成的选题标题（突出核心内容）
   summary?: string;          // 保留中文摘要
   translation?: string;      // 英文原文的中文翻译（仅当原文包含英文时）
+  reason?: string;           // 推荐理由（1 句话，说明"为什么值得关注"）
 }
 
 export interface AIScoredTweet {
@@ -74,6 +75,7 @@ interface BatchAnalysisResult {
     title?: string;
     summary?: string;
     translation?: string;
+    reason?: string;
   }>;
 }
 
@@ -215,6 +217,7 @@ function buildScoringPrompt(tweets: Array<{ index: number; text: string; authorU
 1. **title**: 为每条推文生成一个吸引人的中文选题标题（15-30字），突出核心内容和价值点，可以带有话题感或争议性
 2. **summary**: 1-2 句简洁的中文内容摘要
 3. **translation**: 如果原文包含英文内容，请提供完整的中文翻译；如果原文全是中文则留空
+4. **reason**: 1 句话推荐理由，说明"为什么值得关注"——区别于摘要（摘要说"是什么"，推荐理由说"为什么"）
 
 ## 待分析推特
 
@@ -235,7 +238,8 @@ ${tweetsList}
       "tags": ["标签1", "标签2"],
       "title": "吸引人的选题标题",
       "summary": "中文摘要",
-      "translation": "完整中文翻译（如果原文有英文）"
+      "translation": "完整中文翻译（如果原文有英文）",
+      "reason": "推荐理由（为什么值得关注）"
     }
   ]
 }`;
@@ -257,6 +261,7 @@ function createDefaultScore(): AIScoreResult {
     title: undefined,
     summary: undefined,
     translation: undefined,
+    reason: undefined,
   };
 }
 
@@ -295,6 +300,7 @@ async function scoreBatch(
           title: result.title,
           summary: result.summary,
           translation: result.translation,
+          reason: result.reason,
         });
       }
     }
@@ -378,4 +384,93 @@ export async function scoreTweetsWithAI(
 
 export function isApiKeyConfigured(): boolean {
   return !!process.env.GEMINI_API_KEY;
+}
+
+export async function generateHighlights(
+  tweets: AIScoredTweet[],
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return '';
+
+  const tweetList = tweets.slice(0, 10).map((t, i) =>
+    `${i + 1}. [${t.aiScore.category}] ${t.aiScore.title || t.text.slice(0, 60)} — @${t.authorUsername}`
+  ).join('\n');
+
+  const prompt = `根据以下今日精选推文列表，写一段 3-5 句话的"今日看点"总结。
+要求：
+- 提炼出今天技术圈的 2-3 个主要趋势或话题
+- 不要逐条列举，要做宏观归纳
+- 风格简洁有力，像新闻导语
+- 用中文回答
+
+推文列表：
+${tweetList}
+
+直接返回纯文本总结，不要 JSON，不要 markdown 格式。`;
+
+  try {
+    const text = await callGemini(prompt, apiKey);
+    return text.trim();
+  } catch (error) {
+    console.warn(`[ai-scorer] Highlights generation failed: ${error instanceof Error ? error.message : String(error)}`);
+    return '';
+  }
+}
+
+export async function generateTopicSuggestions(
+  tweets: AIScoredTweet[],
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return '';
+
+  const tweetList = tweets.slice(0, 15).map((t, i) => {
+    const score = t.aiScore;
+    return `${i + 1}. [${score.category}] ${score.title || t.text.slice(0, 80)}\n   摘要: ${score.summary || t.text.slice(0, 100)}\n   互动: ❤️${t.likes} 🔄${t.retweets} 💬${t.replies}`;
+  }).join('\n\n');
+
+  const prompt = `你是一个面向普通用户（非开发者）的 AI 资讯公众号内容策划。根据以下今日推文精选列表，给出 3-5 个具体的选题建议。
+
+要求：
+- 每个选题包含：标题（15-25字，吸引人）、角度（1句话说明切入点）、素材来源（引用列表中的哪几条推文）
+- 选题要面向普通用户，避免过于技术化
+- 优先考虑：热度高的话题、多条推文共同指向的趋势、争议性/话题性内容
+- 可以将多条相关推文合并为一个选题
+- 用中文回答
+
+推文列表：
+${tweetList}
+
+请严格按 JSON 格式返回：
+{
+  "suggestions": [
+    {
+      "title": "选题标题",
+      "angle": "切入角度说明",
+      "sources": [1, 3, 5]
+    }
+  ]
+}`;
+
+  try {
+    const responseText = await callGemini(prompt, apiKey);
+    let jsonText = responseText.trim();
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    }
+
+    const parsed = JSON.parse(jsonText) as { suggestions: Array<{ title: string; angle: string; sources: number[] }> };
+
+    if (!parsed.suggestions?.length) return '';
+
+    let output = '';
+    parsed.suggestions.forEach((s, i) => {
+      output += `${i + 1}. **${s.title}**\n`;
+      output += `   角度: ${s.angle}\n`;
+      output += `   素材来源: 推文 #${s.sources.join(', #')}\n\n`;
+    });
+    return output.trimEnd();
+  } catch (error) {
+    console.warn(`[ai-scorer] Topic suggestions failed: ${error instanceof Error ? error.message : String(error)}`);
+    return '';
+  }
 }
