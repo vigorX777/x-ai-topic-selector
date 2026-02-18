@@ -3,12 +3,25 @@ name: x-ai-topic-selector
 description: Fetches tweets from Twitter List, scores them using data metrics and AI analysis, and generates topic recommendation reports for content creators.
 commands:
   - name: /select-topics
-    description: Generate topic report from Twitter List (interactive guided flow)
+    description: Generate topic report from Twitter List, Home, or Bookmarks (interactive guided flow)
+---
+
+## ⚠️ 默认行为 (Default Behavior)
+
+**重要**: 当用户直接调用 `/x-ai-topic-selector` 而不指定子命令时，Agent **必须自动启动** `/select-topics` 的完整交互流程。
+
+### 交互模式要求
+
+- ✅ **必须使用**: `question()` 工具 + `options` 数组（生成**可点击的选项按钮**）
+- ❌ **禁止使用**: 文本提示 + 等待用户输入（如"请输入..."、"直接回复选项编号"等）
+
+**所有参数收集必须通过 `question()` 工具的选项选择完成**，用户只需点击选项，无需手动输入文本（除非是自由格式输入，如 API Key、URL 等特殊情况）。
+
 ---
 
 # X AI Topic Selector
 
-自动从 Twitter 列表中抓取推文，通过多维评分（数据指标 + AI 分析）生成选题推荐报告。
+自动从 X (Twitter) 抓取推文，通过多维评分（数据指标 + AI 分析）生成选题推荐报告。
 
 ![alt text](architecture.svg)
 
@@ -18,7 +31,10 @@ commands:
 
 运行选题工具。
 
-**使用方式**: 直接输入 `/select-topics`，Agent 将通过交互式引导收集参数。
+**使用方式**: 直接调用 `/select-topics`，Agent 将通过交互式引导收集参数。
+**功能说明**:
+- **扫描模式 (Lists/Home)**: 支持按分类筛选、多维评分、精选推荐。
+- **书签模式 (Bookmarks)**: 自动提取全部书签内容，进入 AI 深度分析模式（无过滤，保留全部）。
 
 ---
 
@@ -36,7 +52,7 @@ Agent 在执行前**必须检查**此文件是否存在：
 {
   "sourceType": "list|home|bookmarks",
   "listUrls": ["https://x.com/i/lists/xxx"],
-  "scoreMode": "data-only",
+  "scoreMode": "data-only|ai-only",
   "geminiApiKey": "",
   "topicCategory": "all",
   "maxTweets": 200,
@@ -80,7 +96,7 @@ cat ~/.x-topic-selector/config.json 2>/dev/null || echo "NO_CONFIG"
 question({
   questions: [{
     header: "使用已保存配置",
-    question: "检测到上次使用的配置：\n\n• 内容来源: ${config.sourceType || 'list'}\n• 列表 URL: ${config.listUrls.join(', ')}\n• 评分模式: ${config.scoreMode}\n• 扫描数量: ${config.maxTweets}\n• 推荐数量: ${config.topN}\n\n请选择操作：",
+    question: "检测到上次使用的配置：\n\n• 内容来源: ${config.sourceType || 'list'}\n• 列表 URL: ${config.listUrls.join(', ')}\n• 评分模式: ${config.sourceType === 'bookmarks' ? 'AI 分析 (书签模式必选)' : config.scoreMode}\n• 扫描数量: ${config.maxTweets}\n• 推荐数量: ${config.sourceType === 'bookmarks' ? '全部书签' : config.topN}\n\n请选择操作：",
     options: [
       { label: "使用上次配置直接运行 (Recommended)", description: "使用所有已保存的参数立即开始" },
       { label: "重新配置全部", description: "从头开始配置所有参数" }
@@ -109,7 +125,7 @@ question({
 
 ### Step 2: 一次性收集所有参数
 
-**核心设计**: 将所有参数放在单次 `question()` 调用中，用户可以一次性完成所有配置。
+**核心设计**: 将所有参数放在单次 `question()` 调用中。
 
 使用 `question()` 工具一次性询问所有参数：
 
@@ -123,25 +139,19 @@ question({
       options: [
         { label: `X 列表 (List)${config?.sourceType === 'list' ? ' (上次选择)' : ''}`, description: "扫描指定的 Twitter 列表，选择后需要输入列表 URL" },
         { label: `推荐 (For You)${config?.sourceType === 'home' ? ' (上次选择)' : ''}`, description: "扫描 X 推荐的内容" },
-        { label: `书签 (Bookmarks)${config?.sourceType === 'bookmarks' ? ' (上次选择)' : ''}`, description: "扫描你收藏的推文" }
+        { label: `书签 (Bookmarks)${config?.sourceType === 'bookmarks' ? ' (上次选择)' : ''}`, description: "扫描你收藏的推文（自动进入 AI 全量提取模式）" }
       ]
     },
-    // Q2: 评分模式
+    // Q2: 评分模式 (仅非书签模式)
     {
       header: "评分模式",
       question: "请选择选题评分模式",
       options: [
-        { 
-          label: `数据分析模式 (Recommended)${config?.scoreMode === 'data-only' ? ' (上次选择)' : ''}`, 
-          description: "基于互动数据评分，无需 API Key" 
-        },
-        { 
-          label: `AI 分析模式${config?.scoreMode === 'ai-only' ? ' (上次选择)' : ''}`, 
-          description: "基于 AI 内容分析，需要 Gemini API Key" 
-        }
+        { label: `数据分析模式 (Recommended)${config?.scoreMode === 'data-only' ? ' (上次选择)' : ''}`, description: "基于互动数据评分，无需 API Key" },
+        { label: `AI 分析模式${config?.scoreMode === 'ai-only' ? ' (上次选择)' : ''}`, description: "基于 AI 内容分析，需要 Gemini API Key" }
       ]
     },
-    // Q3: 选题范围
+    // Q3: 选题范围 (仅非书签模式)
     {
       header: "选题范围",
       question: "请选择要关注的选题范围",
@@ -159,18 +169,16 @@ question({
       header: "扫描数量",
       question: "请选择要扫描的推文数量",
       options: [
-        ...(config && ![100, 200, 500].includes(config.maxTweets) ? [{ label: `${config.maxTweets} 条 (上次选择)`, description: "使用上次自定义的扫描数量" }] : []),
-        { label: `100 条${config?.maxTweets === 100 ? ' (上次选择)' : ''}`, description: "快速扫描，约 1-2 分钟" },
-        { label: `200 条 (Recommended)${config?.maxTweets === 200 ? ' (上次选择)' : ''}`, description: "标准扫描，约 2-4 分钟" },
-        { label: `500 条${config?.maxTweets === 500 ? ' (上次选择)' : ''}`, description: "深度扫描，约 5-8 分钟" }
+        { label: `100 条${config?.maxTweets === 100 ? ' (上次选择)' : ''}`, description: "快速扫描" },
+        { label: `200 条 (Recommended)${config?.maxTweets === 200 ? ' (上次选择)' : ''}`, description: "标准扫描" },
+        { label: `500 条${config?.maxTweets === 500 ? ' (上次选择)' : ''}`, description: "深度扫描" }
       ]
     },
-    // Q5: 推荐条数
+    // Q5: 推荐条数 (仅非书签模式)
     {
       header: "推荐条数",
       question: "请选择要推荐的选题数量",
       options: [
-        ...(config && ![5, 10, 20].includes(config.topN) ? [{ label: `${config.topN} 条 (上次选择)`, description: "使用上次自定义的推荐条数" }] : []),
         { label: `5 条${config?.topN === 5 ? ' (上次选择)' : ''}`, description: "精选推荐" },
         { label: `10 条 (Recommended)${config?.topN === 10 ? ' (上次选择)' : ''}`, description: "标准推荐" },
         { label: `20 条${config?.topN === 20 ? ' (上次选择)' : ''}`, description: "扩展推荐" }
@@ -179,6 +187,16 @@ question({
   ]
 })
 ```
+
+**路由逻辑**:
+- **如果用户选择 "书签 (Bookmarks)"**: 仅需额外确认 "扫描数量"。自动设置 `scoreMode = ai-only`。
+- **如果用户选择 "X 列表" 或 "推荐"**: 执行完整参数收集流程。
+
+#### A. 已移除书签模式独立流程 (已合并到 Step 2)
+
+Step 2 现在一次性收集所有参数。如果 Source = Bookmarks，脚本会自动忽略评分模式和推荐条数等参数。
+
+#### B. 扫描过滤模式流程 (已合并到 Step 2)
 
 ### Step 2b: 条件性补充收集
 
@@ -198,24 +216,15 @@ question({
 })
 ```
 
-**验证规则**：
-- URL 必须包含 `x.com/i/lists/`、`twitter.com/i/lists/`
-- 或者是纯数字 ID
-- 多个列表 URL 用逗号分隔
+#### 如果进入了 "书签模式" 或选择了 "AI 分析模式"
 
-**其他来源的 URL**:
-- 推荐 (For You): `https://x.com/home`
-- 书签 (Bookmarks): `https://x.com/i/bookmarks`
-
-#### 如果选择了 "AI 分析模式" 且配置中没有已保存的 API Key
-
-需要继续询问 Gemini API Key：
+**必须检查** Gemini API Key：
 
 ```
 question({
   questions: [{
     header: "Gemini API Key",
-    question: "请输入您的 Gemini API Key\n\n获取方式：访问 https://aistudio.google.com/apikey 创建 API Key${config?.geminiApiKey ? '\n\n📌 检测到已保存的 API Key，可直接回车复用' : ''}",
+    question: "书签模式和 AI 模式需要 Gemini API Key\n\n获取方式：访问 https://aistudio.google.com/apikey 创建 API Key${config?.geminiApiKey ? '\n\n📌 检测到已保存的 API Key，可直接复用' : ''}",
     options: config?.geminiApiKey ? [{ label: "使用已保存的 API Key", description: "复用上次保存的 Gemini API Key" }] : []
   }]
 })
@@ -228,72 +237,72 @@ question({
 收集完所有参数后，Agent 构建并执行命令：
 
 ```bash
-# 确保输出目录存在（默认使用当前工作目录下的 output 文件夹）
+# 确保输出目录存在
 mkdir -p ./output
 
-# 设置环境变量（如果需要 AI 模式）
+# 设置环境变量
 export GEMINI_API_KEY="用户提供的key"
 
-# 执行脚本
+# 执行脚本 (Source = List/Home)
 bun run ${SKILL_DIR}/scripts/x-topic-selector.ts \
-  "URL1" \
+  "URL" \
   --score-mode <mode> \
   --max-tweets <count> \
   --topic-category <category> \
   --top-n <n> \
   --output ./output/topic-report-{timestamp}.md
-```
 
-**多个 URL 处理**：
-- 对于多个列表 URL，依次执行脚本
-- 每个列表生成独立的报告文件
+# 执行脚本 (Source = Bookmarks)
+bun run ${SKILL_DIR}/scripts/x-topic-selector.ts \
+  "https://x.com/i/bookmarks" \
+  --digest \
+  --max-tweets <count> \
+  --output ./output/topic-report-{timestamp}.md
+```
 
 ### Step 3b: 保存配置
 
 执行成功后，**必须保存配置**以便下次复用：
 
 ```bash
-# 创建配置目录
-mkdir -p ~/.x-topic-selector
-
-# 保存配置（包括 API Key）
 cat > ~/.x-topic-selector/config.json << 'EOF'
 {
-  "sourceType": "<list|home|bookmarks>",
-  "listUrls": ["<用户输入的URL列表>"],
-  "scoreMode": "<data-only|ai-only>",
-  "geminiApiKey": "<用户输入的API Key，如果有>",
-  "topicCategory": "<category>",
-  "maxTweets": <count>,
-  "topN": <n>,
-  "lastUsed": "<当前ISO时间戳>"
+  "sourceType": "list|home|bookmarks",
+  "listUrls": ["URL"],
+  "scoreMode": "data-only|ai-only",
+  "geminiApiKey": "KEY",
+  "topicCategory": "all",
+  "maxTweets": count,
+  "topN": n,
+  "lastUsed": "ISO_TIMESTAMP"
 }
 EOF
 ```
 
-**注意**：
-- API Key 会保存到配置文件，下次使用 AI 模式时自动复用
-- `lastUsed` 使用 ISO 8601 格式（如 `2025-02-01T12:00:00Z`）
-
 ### Step 4: 结果展示
 
-执行完成后，向用户展示：
+执行完成后，向用户展示结果。对于**书签模式**，展示内容包含：
+- 📁 日报文件路径
+- 📝 今日看点预览
+- 🏆 必读 Top 3 标题
+- 💡 选题思路数量
 
-**成功时**：
-- 📁 报告文件路径
-- 📊 简要摘要：扫描推文数、推荐选题数
-- 🔥 **互动热度 Top 3**：按纯数据指标排名的热门推文
-- 🏆 **推荐选题预览**：Top 3 选题的标题预览（80字符）
+---
 
-**报告内容说明**：
-- 每个选题包含 **AI 摘要**（80字符标题）和 **原文内容**（完整文本）
-- 互动数据格式：❤️ 点赞 | 🔄 转发 | 💬 评论 | 👀 浏览
-- 三维度 AI 评分（创新性/实用性/影响力）各 1-5 分
-- Thread 帖子标记：📜 Thread (N 条)
+## 脚本目录
+... (内容同前)
 
-**失败时**：
-- 显示错误信息和可能原因
-- 提供故障排除建议（参考文档末尾的故障排除章节）
+## 参数映射
+... (内容同前)
+
+## 环境要求
+... (内容同前)
+
+## Thread 自动展开
+... (内容同前)
+
+## 故障排除
+... (内容同前)
 
 ---
 

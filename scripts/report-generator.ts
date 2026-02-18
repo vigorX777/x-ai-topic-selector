@@ -13,6 +13,8 @@ interface Tweet {
   isRetweet: boolean;
   isThread: boolean;
   threadLength: number;
+  isArticle?: boolean;
+  articleTitle?: string;
 }
 
 interface ScoredTweet extends Tweet {
@@ -29,6 +31,14 @@ interface ReportOptions {
   allTweets?: ScoredTweet[];
 }
 
+export interface DigestOptions {
+  totalTweets: number;
+  filteredTweets: number;
+  highlights: string;
+  topicSuggestions: string;
+  isBookmarkMode?: boolean;
+}
+
 const CATEGORY_DISPLAY: Record<string, string> = {
   'ai-tools': 'AI 工具',
   'industry-news': '行业新闻',
@@ -36,6 +46,15 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   'tutorials': '教程指南',
   'controversial': '争议话题',
   'other': '其他',
+};
+
+const CATEGORY_EMOJI: Record<string, string> = {
+  'ai-tools': '🛠️',
+  'industry-news': '📰',
+  'tech-breakthroughs': '🔬',
+  'tutorials': '📖',
+  'controversial': '🔥',
+  'other': '📌',
 };
 
 const STOP_WORDS = new Set([
@@ -143,6 +162,78 @@ function generateEngagementTop3(tweets: ScoredTweet[]): string {
   return section;
 }
 
+function generateCategoryPieChart(tweets: ScoredTweet[]): string {
+  const catCount = new Map<string, number>();
+  for (const t of tweets) {
+    const cat = t.aiScore?.category || 'other';
+    catCount.set(cat, (catCount.get(cat) || 0) + 1);
+  }
+
+  if (catCount.size === 0) return '';
+
+  const sorted = Array.from(catCount.entries()).sort((a, b) => b[1] - a[1]);
+
+  let chart = '```mermaid\n';
+  chart += 'pie showData\n';
+  chart += '    title "文章分类分布"\n';
+  for (const [cat, count] of sorted) {
+    const emoji = CATEGORY_EMOJI[cat] || '📌';
+    const label = CATEGORY_DISPLAY[cat] || cat;
+    chart += `    "${emoji} ${label}" : ${count}\n`;
+  }
+  chart += '```\n';
+
+  return chart;
+}
+
+function generateAsciiBarChart(tweets: ScoredTweet[]): string {
+  const keywords = extractKeywords(tweets);
+
+  const sorted = Array.from(keywords.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  if (sorted.length === 0) return '';
+
+  const maxVal = sorted[0]![1]!;
+  const maxBarWidth = 20;
+  const maxLabelLen = Math.max(...sorted.map(([k]) => k.length));
+
+  let chart = '```\n';
+  for (const [label, value] of sorted) {
+    const barLen = Math.max(1, Math.round((value / maxVal) * maxBarWidth));
+    const bar = '█'.repeat(barLen) + '░'.repeat(maxBarWidth - barLen);
+    chart += `${label.padEnd(maxLabelLen)} │ ${bar} ${value}\n`;
+  }
+  chart += '```\n';
+
+  return chart;
+}
+
+function generateTagCloud(tweets: ScoredTweet[]): string {
+  const tagCount = new Map<string, number>();
+  for (const t of tweets) {
+    if (t.aiScore?.tags) {
+      for (const tag of t.aiScore.tags) {
+        const normalized = tag.toLowerCase().trim();
+        if (normalized.length >= 2) {
+          tagCount.set(normalized, (tagCount.get(normalized) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  const sorted = Array.from(tagCount.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20);
+
+  if (sorted.length === 0) return '';
+
+  return sorted
+    .map(([word, count], i) => i < 3 ? `**${word}**(${count})` : `${word}(${count})`)
+    .join(' · ');
+}
+
 function hasEnglishContent(text: string): boolean {
   const englishWords = text.match(/[a-zA-Z]{4,}/g) || [];
   return englishWords.length >= 3;
@@ -209,6 +300,9 @@ export function generateReport(tweets: ScoredTweet[], options: ReportOptions): s
     
     const tags = [];
     tags.push(tweet.isRetweet ? "转发" : "原创");
+    if (tweet.isArticle) {
+      tags.push("📰 长文");
+    }
     if (tweet.isThread && tweet.threadLength > 1) {
       tags.push(`📜 Thread (${tweet.threadLength} 条)`);
     }
@@ -220,5 +314,157 @@ export function generateReport(tweets: ScoredTweet[], options: ReportOptions): s
     report += `---\n\n`;
   });
   
+  return report;
+}
+
+export function generateDigestReport(tweets: ScoredTweet[], options: DigestOptions): string {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+
+  let report = `# 📰 书签日报 — ${dateStr}\n\n`;
+  const title = options.isBookmarkMode
+    ? `共 ${tweets.length} 条书签收藏`
+    : `AI 精选 Top ${tweets.length}`;
+  report += `> 来自 X 书签，${title}\n\n`;
+
+  // ── Today's Highlights ──
+  if (options.highlights) {
+    report += `## 📝 今日看点\n\n`;
+    report += `${options.highlights}\n\n`;
+    report += `---\n\n`;
+  }
+
+  // ── Top 3 Deep Showcase ──
+  if (tweets.length >= 3) {
+    report += `## 🏆 今日必读\n\n`;
+    for (let i = 0; i < Math.min(3, tweets.length); i++) {
+      const t = tweets[i]!;
+      const medal = ['🥇', '🥈', '🥉'][i];
+      const catEmoji = CATEGORY_EMOJI[t.aiScore?.category || 'other'] || '📌';
+      const catLabel = CATEGORY_DISPLAY[t.aiScore?.category || 'other'] || '其他';
+      const title = t.aiScore?.title || t.aiScore?.summary?.slice(0, 50) || t.text.slice(0, 50).replace(/\n/g, ' ');
+      const scoreTotal = t.aiScore
+        ? t.aiScore.innovation + t.aiScore.practicality + t.aiScore.influence
+        : 0;
+
+      report += `${medal} **${title}**\n\n`;
+      report += `[@${t.authorUsername}](${t.url}) · ${catEmoji} ${catLabel} · ⭐ ${scoreTotal}/15\n\n`;
+
+      if (t.aiScore?.summary) {
+        report += `> ${t.aiScore.summary}\n\n`;
+      }
+
+      if (t.aiScore?.reason) {
+        report += `💡 **为什么值得关注**: ${t.aiScore.reason}\n\n`;
+      }
+
+      if (t.aiScore?.tags?.length) {
+        report += `🏷️ ${t.aiScore.tags.join(', ')}\n\n`;
+      }
+    }
+    report += `---\n\n`;
+  }
+
+  // ── Visual Statistics ──
+  report += `## 📊 数据概览\n\n`;
+
+  const header = options.isBookmarkMode
+    ? `| 抓取书签 | — | 收录 |`
+    : `| 扫描推文 | 筛选后 | 精选 |`;
+  report += `${header}\n`;
+  report += `|:---:|:---:|:---:|\n`;
+  report += `| ${options.totalTweets} 条 | ${options.filteredTweets} 条 | **${tweets.length} 条** |\n\n`;
+
+  const pieChart = generateCategoryPieChart(tweets);
+  if (pieChart) {
+    report += `### 分类分布\n\n${pieChart}\n`;
+  }
+
+  const keywords = extractKeywords(tweets);
+  const topKeywords = Array.from(keywords.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  if (topKeywords.length > 0) {
+    report += `### 高频关键词\n\n`;
+    report += '```mermaid\n';
+    report += 'xychart-beta\n';
+    report += '    title "Top 10 高频关键词"\n';
+    report += `    x-axis [${topKeywords.map(([word]) => `"${word}"`).join(', ')}]\n`;
+    report += `    y-axis "出现次数" 0 --> ${Math.max(...topKeywords.map(([, count]) => count)) + 2}\n`;
+    report += `    bar [${topKeywords.map(([, count]) => count).join(', ')}]\n`;
+    report += '```\n\n';
+  }
+
+  const asciiChart = generateAsciiBarChart(tweets);
+  if (asciiChart) {
+    report += `<details>\n<summary>📈 纯文本关键词图（终端友好）</summary>\n\n${asciiChart}\n</details>\n\n`;
+  }
+
+  const tagCloud = generateTagCloud(tweets);
+  if (tagCloud) {
+    report += `### 🏷️ 话题标签\n\n${tagCloud}\n\n`;
+  }
+
+  report += `---\n\n`;
+
+  // ── Category-Grouped Articles ──
+  const categoryGroups = new Map<string, ScoredTweet[]>();
+  for (const t of tweets) {
+    const cat = t.aiScore?.category || 'other';
+    const list = categoryGroups.get(cat) || [];
+    list.push(t);
+    categoryGroups.set(cat, list);
+  }
+
+  const sortedCategories = Array.from(categoryGroups.entries())
+    .sort((a, b) => b[1].length - a[1].length);
+
+  let globalIndex = 0;
+  for (const [catId, catTweets] of sortedCategories) {
+    const emoji = CATEGORY_EMOJI[catId] || '📌';
+    const label = CATEGORY_DISPLAY[catId] || catId;
+    report += `## ${emoji} ${label}\n\n`;
+
+    for (const t of catTweets) {
+      globalIndex++;
+      const title = t.aiScore?.title || t.aiScore?.summary?.slice(0, 50) || t.text.slice(0, 50).replace(/\n/g, ' ');
+      const scoreTotal = t.aiScore
+        ? t.aiScore.innovation + t.aiScore.practicality + t.aiScore.influence
+        : 0;
+
+      report += `### ${globalIndex}. ${title}\n\n`;
+      report += `[@${t.authorUsername}](${t.url}) · ⭐ ${scoreTotal}/15 · ❤️ ${t.likes.toLocaleString()} · 🔄 ${t.retweets.toLocaleString()} · 💬 ${t.replies.toLocaleString()}\n\n`;
+
+      if (t.aiScore?.summary) {
+        report += `> ${t.aiScore.summary}\n\n`;
+      }
+
+      if (t.aiScore?.reason) {
+        report += `💡 ${t.aiScore.reason}\n\n`;
+      }
+
+      if (t.aiScore?.tags?.length) {
+        report += `🏷️ ${t.aiScore.tags.join(', ')}\n\n`;
+      }
+
+      report += `---\n\n`;
+    }
+  }
+
+  // ── Topic Suggestions ──
+  if (options.topicSuggestions) {
+    report += `## 💡 选题思路\n\n`;
+    report += `${options.topicSuggestions}\n\n`;
+    report += `---\n\n`;
+  }
+
+  // ── Footer ──
+  const footerStats = options.isBookmarkMode
+    ? `收录 ${tweets.length} 条书签`
+    : `扫描 ${options.totalTweets} 条 → 精选 ${tweets.length} 条`;
+  report += `*生成于 ${dateStr} ${now.toISOString().split('T')[1]?.slice(0, 5) || ''} | ${footerStats}*\n`;
+  report += `*由「懂点儿AI」制作，欢迎关注同名微信公众号获取更多 AI 实用技巧 💡*\n`;
+
   return report;
 }

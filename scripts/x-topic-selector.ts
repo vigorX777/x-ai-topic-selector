@@ -10,8 +10,8 @@ import {
   sleep,
   waitForChromeDebugPort,
 } from './x-utils.js';
-import { scoreTweetsWithAI, isApiKeyConfigured, type AIScoredTweet } from './ai-scorer.js';
-import { generateReport } from './report-generator.js';
+import { scoreTweetsWithAI, isApiKeyConfigured, generateHighlights, generateTopicSuggestions, type AIScoredTweet } from './ai-scorer.js';
+import { generateReport, generateDigestReport } from './report-generator.js';
 
 // Parallel thread expansion settings
 const THREAD_EXPANSION_CONCURRENCY = 3;
@@ -41,6 +41,8 @@ interface Tweet {
   isRetweet: boolean;
   isThread: boolean;
   threadLength: number;
+  isArticle?: boolean;
+  articleTitle?: string;
 }
 
 interface ScoringOptions {
@@ -532,6 +534,72 @@ export async function scrapeTweets(options: TopicSelectorOptions): Promise<Tweet
               const textEl = tweetEl.querySelector('[data-testid="tweetText"]');
               let text = textEl ? textEl.textContent.trim() : '';
               
+              // Check for X Article - uses article-cover-image instead of card.wrapper
+              let isArticle = false;
+              let articleTitle = '';
+              const articleCoverImage = tweetEl.querySelector('[data-testid="article-cover-image"]');
+              
+              if (articleCoverImage) {
+                isArticle = true;
+                // Article title is usually in a span with dir="ltr" near the cover image
+                const articleContainer = articleCoverImage.closest('div[class*="r-"]')?.parentElement;
+                if (articleContainer) {
+                  const titleSpans = articleContainer.querySelectorAll('span[dir="ltr"], span[dir="auto"]');
+                  for (const span of titleSpans) {
+                    const spanText = span.textContent?.trim() || '';
+                    if (spanText.length > 10 && !spanText.includes('@') && !spanText.startsWith('http')) {
+                      articleTitle = spanText;
+                      break;
+                    }
+                  }
+                }
+                // Broader search for article title if not found
+                if (!articleTitle) {
+                  const allSpans = tweetEl.querySelectorAll('span');
+                  for (const span of allSpans) {
+                    const spanText = span.textContent?.trim() || '';
+                    if (spanText.length > 20 && !spanText.includes('@') && !spanText.startsWith('http') && !spanText.match(/^\\d/)) {
+                      articleTitle = spanText;
+                      break;
+                    }
+                  }
+                }
+                if (!text && articleTitle) {
+                  text = '[Article] ' + articleTitle;
+                }
+              }
+              
+              // Also check for card.wrapper (other card types like link previews)
+              const cardWrapper = tweetEl.querySelector('[data-testid="card.wrapper"]');
+              if (!text && cardWrapper) {
+                const cardText = cardWrapper.textContent || '';
+                const hasArticleLabel = cardText.includes('文章') || cardText.includes('Article');
+                if (hasArticleLabel) {
+                  isArticle = true;
+                  const detailEl = cardWrapper.querySelector('[data-testid="card.layoutLarge.detail"]');
+                  if (detailEl) {
+                    const divs = detailEl.querySelectorAll(':scope > div');
+                    if (divs.length >= 2) {
+                      articleTitle = divs[1].textContent?.trim() || '';
+                    }
+                    if (!text && articleTitle) {
+                      text = '[Article] ' + articleTitle;
+                    }
+                  }
+                }
+                // Fallback for any card without text
+                if (!text) {
+                  const allSpans = cardWrapper.querySelectorAll('span');
+                  for (const span of allSpans) {
+                    const spanText = span.textContent?.trim() || '';
+                    if (spanText.length > 20 && !spanText.includes('x.com')) {
+                      text = '[Card] ' + spanText;
+                      break;
+                    }
+                  }
+                }
+              }
+              
               let authorUsername = '';
               let authorDisplayName = '';
               const userNameEl = tweetEl.querySelector('[data-testid="User-Name"]');
@@ -602,6 +670,8 @@ export async function scrapeTweets(options: TopicSelectorOptions): Promise<Tweet
                   isThread: false,
                   threadLength: 1,
                   isLikelyThread: replies > 0,
+                  isArticle,
+                  articleTitle: articleTitle || undefined,
                 });
               }
             } catch (err) {}
@@ -716,18 +786,65 @@ function printUsage(): never {
  
    Scoring Options:
    --score-mode <mode>      Scoring mode: data-only, ai-only (default: data-only)
-                            - data-only: 基于互动数据（点赞×1 + 转发×3 + 评论×2 + 浏览×0.01）
-                            - ai-only: 基于 AI 分析（创新度 + 影响力 + 实用性，需要 GEMINI_API_KEY）
+                             - data-only: 基于互动数据（点赞×1 + 转发×3 + 评论×2 + 浏览×0.01）
+                             - ai-only: 基于 AI 分析（创新度 + 影响力 + 实用性，需要 GEMINI_API_KEY）
    --keywords <k1,k2>       Comma-separated keywords to filter tweets
    --exclude <e1,e2>        Comma-separated keywords to exclude tweets
    --top-n <n>              Number of top tweets to return (default: 10)
+
+   Digest Mode:
+   --digest                  Generate a digest-style report (implies --score-mode ai-only, bookmarks source, --top-n 15)
  
  Examples:
    bun scripts/x-topic-selector.ts "https://x.com/i/lists/1234567890"
    bun scripts/x-topic-selector.ts 1234567890 --dry-run --max-tweets 10
    bun scripts/x-topic-selector.ts 1234567890 --score-mode ai-only --top-n 5
+   bun scripts/x-topic-selector.ts --digest
+   bun scripts/x-topic-selector.ts --digest --max-tweets 100 --top-n 10
  `);
   process.exit(0);
+}
+
+async function buildDigestReport(
+  scoredTweets: ScoredTweet[],
+  totalTweets: number,
+  filteredTweets: number,
+): Promise<string> {
+  const aiScoredTweets = scoredTweets
+    .filter((t): t is ScoredTweet & { aiScore: AIScoredTweet['aiScore'] } => !!t.aiScore)
+    .map(t => ({
+      text: t.text,
+      authorUsername: t.authorUsername,
+      authorDisplayName: t.authorDisplayName,
+      likes: t.likes,
+      retweets: t.retweets,
+      replies: t.replies,
+      views: t.views,
+      time: t.time,
+      url: t.url,
+      isRetweet: t.isRetweet,
+      aiScore: t.aiScore,
+    }));
+
+  console.log('[x-topic-selector] Generating highlights...');
+  const highlights = await generateHighlights(aiScoredTweets);
+
+  console.log('[x-topic-selector] Generating topic suggestions...');
+  const topicSuggestions = await generateTopicSuggestions(aiScoredTweets);
+
+  return generateDigestReport(scoredTweets, {
+    totalTweets,
+    filteredTweets,
+    highlights,
+    topicSuggestions,
+  });
+}
+
+function toScoredTweet(tweet: Tweet, aiScore?: AIScoredTweet['aiScore']): ScoredTweet {
+  const totalScore = aiScore
+    ? aiScore.innovation + aiScore.practicality + aiScore.influence
+    : 0;
+  return { ...tweet, dataScore: 0, totalScore, aiScore };
 }
 
 async function main(): Promise<void> {
@@ -737,6 +854,7 @@ async function main(): Promise<void> {
   let sourceUrl = '';
   let maxTweets = 200;
   let dryRun = false;
+  let digestMode = false;
   let profileDir: string | undefined;
   let outputPath: string | undefined;
 
@@ -756,6 +874,8 @@ async function main(): Promise<void> {
       scoringOptions.topicCategory = args[++i]!;
     } else if (arg === '--dry-run') {
       dryRun = true;
+    } else if (arg === '--digest') {
+      digestMode = true;
     } else if (arg === '--profile' && args[i + 1]) {
       profileDir = args[++i];
     } else if (arg === '--output' && args[i + 1]) {
@@ -773,11 +893,67 @@ async function main(): Promise<void> {
     }
   }
 
+  if (digestMode) {
+    if (!sourceUrl) {
+      sourceUrl = 'https://x.com/i/bookmarks';
+    }
+    scoringOptions.scoreMode = 'ai-only';
+    if (scoringOptions.topN === 10) scoringOptions.topN = 15;
+  }
+
   if (!sourceUrl) {
     console.error('Error: Source URL or ID required.');
     printUsage();
   }
 
+  const source = parseSourceUrl(sourceUrl);
+
+  // Bookmark extraction pipeline: bypass filtering, preserve all content with AI analysis
+  if (source.type === 'bookmarks') {
+    if (!isApiKeyConfigured()) {
+      throw new Error('Bookmark mode requires GEMINI_API_KEY for AI analysis. Set it via env or config.');
+    }
+
+    const tweets = await scrapeTweets({ sourceUrl, maxTweets, dryRun, profileDir });
+
+    if (tweets.length === 0) {
+      console.log('[x-topic-selector] No bookmarks found.');
+      const emptyReport = await buildDigestReport([], 0, 0);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const finalPath = outputPath || `bookmark-digest-${timestamp}.md`;
+      await writeFile(finalPath, emptyReport);
+      console.log(`[x-topic-selector] Empty report saved to: ${finalPath}`);
+      return;
+    }
+
+    console.log(`[x-topic-selector] Bookmark mode: ${tweets.length} tweets scraped, running AI analysis...`);
+    const aiScoredTweets = await scoreTweetsWithAI(tweets, { translate: true });
+    const scoredTweets: ScoredTweet[] = tweets.map((tweet, i) =>
+      toScoredTweet(tweet, aiScoredTweets[i]?.aiScore)
+    );
+
+    if (dryRun) {
+      console.log('\n=== BOOKMARK DIGEST (ALL) ===\n');
+      scoredTweets.forEach((tweet, index) => {
+        console.log(`${index + 1}. [Score: ${tweet.totalScore.toFixed(2)}] @${tweet.authorUsername} - "${(tweet.aiScore?.summary || tweet.text).slice(0, 100)}..."`);
+        console.log(`   Likes ${tweet.likes} | Retweets ${tweet.retweets} | Replies ${tweet.replies} | Views ${tweet.views.toLocaleString()}`);
+        console.log(`   Link: ${tweet.url}\n`);
+      });
+    } else {
+      console.log(`\n=== BOOKMARK EXTRACTION COMPLETE ===`);
+      console.log(`Total bookmarks: ${tweets.length}`);
+      console.log(`All ${scoredTweets.length} bookmarks included in digest.`);
+
+      const report = await buildDigestReport(scoredTweets, tweets.length, tweets.length);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const finalPath = outputPath || `bookmark-digest-${timestamp}.md`;
+      await writeFile(finalPath, report);
+      console.log(`[x-topic-selector] Report saved to: ${finalPath}`);
+    }
+    return;
+  }
+
+  // Scan pipeline (Home/Lists): scrape → score → filter → report
   const tweets = await scrapeTweets({ sourceUrl, maxTweets, dryRun, profileDir });
   
   let processedTweets: Tweet[] = tweets;
@@ -809,16 +985,21 @@ async function main(): Promise<void> {
       console.log(`Top tweet: [Score: ${scoredTweets[0].totalScore.toFixed(2)}] @${scoredTweets[0].authorUsername}`);
     }
 
-    const report = generateReport(scoredTweets, {
-      scoreMode: scoringOptions.scoreMode,
-      totalTweets: tweets.length,
-      filteredTweets: processedTweets.length,
-      topicCategory: scoringOptions.topicCategory,
-      allTweets: scoredTweets,
-    });
+    const report = digestMode
+      ? await buildDigestReport(scoredTweets, tweets.length, processedTweets.length)
+      : generateReport(scoredTweets, {
+          scoreMode: scoringOptions.scoreMode,
+          totalTweets: tweets.length,
+          filteredTweets: processedTweets.length,
+          topicCategory: scoringOptions.topicCategory,
+          allTweets: scoredTweets,
+        });
     
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const finalPath = outputPath || `topic-report-${timestamp}.md`;
+    const defaultFilename = digestMode
+      ? `bookmark-digest-${timestamp}.md`
+      : `topic-report-${timestamp}.md`;
+    const finalPath = outputPath || defaultFilename;
     
     await writeFile(finalPath, report);
     console.log(`[x-topic-selector] Report saved to: ${finalPath}`);
