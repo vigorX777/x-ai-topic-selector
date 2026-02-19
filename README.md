@@ -111,6 +111,35 @@ X AI Topic Selector 是一个 Claude Agent 技能，帮内容创作者从 X (Twi
 - **AI 模型**：Google Gemini API / OpenAI-compatible API（可配置）
 - **输出格式**：Markdown + Mermaid 图表
 
+## 安装
+
+### 一键安装（推荐）
+
+通过 Skills CLI 安装到 Claude：
+
+```bash
+npx skills add vigorX777/x-ai-topic-selector -g -y
+```
+
+安装完成后即可在 Claude 中使用 `/x-ai-topic-selector` 命令。
+
+### 手动安装
+
+```bash
+# Clone 到 Claude skills 目录
+git clone https://github.com/vigorX777/x-ai-topic-selector.git ~/.claude/skills/x-ai-topic-selector
+
+# 安装依赖
+cd ~/.claude/skills/x-ai-topic-selector
+bun install
+```
+
+### 前置条件
+
+- [Bun](https://bun.sh) ≥ 1.0（`curl -fsSL https://bun.sh/install | bash`）
+- Google Chrome 或 Chromium 浏览器
+- Gemini API Key（AI 模式 / 书签模式需要，[点此获取](https://aistudio.google.com/apikey)）
+
 ## 快速开始
 
 ### Agent 模式（推荐）
