@@ -1,12 +1,11 @@
-import * as process from 'node:process';
+import type { AIClient } from './ai-client.js';
 
 /**
  * AI Scoring Module
- * Uses Gemini API to analyze tweet content and provide scoring/suggestions
+ * Uses AI API to analyze tweet content and provide scoring/suggestions
  */
 
-// Gemini API Configuration
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+// AI Configuration
 const DEFAULT_BATCH_SIZE = 5;
 const MAX_CONCURRENT_BATCHES = 2;
 
@@ -51,16 +50,6 @@ export interface AIScoredTweet {
   aiScore: AIScoreResult;
 }
 
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-}
-
 interface BatchAnalysisResult {
   results: Array<{
     index: number;
@@ -80,37 +69,10 @@ interface BatchAnalysisResult {
 }
 
 // ============================================================================
-// Gemini API Client
+// AI Scoring
 // ============================================================================
 
-async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { 
-        temperature: 0.3,
-        topP: 0.8,
-        topK: 40,
-      }
-    })
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(`Gemini API error (${response.status}): ${errorText}`);
-  }
-  
-  const data = await response.json() as GeminiResponse;
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-}
-
-// ============================================================================
-// Prompt Construction
-// ============================================================================
-
-function buildScoringPrompt(tweets: Array<{ index: number; text: string; authorUsername: string }>, translate: boolean): string {
+export function buildScoringPrompt(tweets: Array<{ index: number; text: string; authorUsername: string }>, translate: boolean): string {
   const tweetsList = tweets.map(t => 
     `Index ${t.index}: @${t.authorUsername}\n${t.text}`
   ).join('\n\n---\n\n');
@@ -248,7 +210,7 @@ ${tweetsList}
 // Scoring Logic
 // ============================================================================
 
-function createDefaultScore(): AIScoreResult {
+export function createDefaultScore(): AIScoreResult {
   return {
     innovation: 1,
     innovationComment: '',
@@ -267,14 +229,14 @@ function createDefaultScore(): AIScoreResult {
 
 async function scoreBatch(
   tweets: Array<{ index: number; text: string; authorUsername: string }>,
-  apiKey: string,
+  client: AIClient,
   translate: boolean
 ): Promise<Map<number, AIScoreResult>> {
   const scores = new Map<number, AIScoreResult>();
   
   try {
     const prompt = buildScoringPrompt(tweets, translate);
-    const responseText = await callGemini(prompt, apiKey);
+    const responseText = await client.generate(prompt);
     
     // Parse JSON response (strip markdown code blocks if present)
     let jsonText = responseText.trim();
@@ -321,21 +283,12 @@ async function scoreBatch(
 
 export async function scoreTweetsWithAI(
   tweets: Array<{ text: string; authorUsername: string; authorDisplayName: string; likes: number; retweets: number; replies: number; views: number; time: string; url: string; isRetweet: boolean }>,
+  client: AIClient,
   options: AIScoreOptions = {}
 ): Promise<AIScoredTweet[]> {
   const { translate = false, batchSize = DEFAULT_BATCH_SIZE } = options;
   
-  // Check for API key
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn('[ai-scorer] GEMINI_API_KEY not set. Returning default scores.');
-    return tweets.map(tweet => ({
-      ...tweet,
-      aiScore: createDefaultScore(),
-    }));
-  }
-  
-  console.log(`[ai-scorer] Scoring ${tweets.length} tweets with Gemini API (batch size: ${batchSize})`);
+  console.log(`[ai-scorer] Scoring ${tweets.length} tweets with AI API (batch size: ${batchSize})`);
   
   // Create indexed tweets for batch processing
   const indexedTweets = tweets.map((tweet, index) => ({
@@ -357,7 +310,7 @@ export async function scoreTweetsWithAI(
   
   for (let i = 0; i < batches.length; i += MAX_CONCURRENT_BATCHES) {
     const batchGroup = batches.slice(i, i + MAX_CONCURRENT_BATCHES);
-    const promises = batchGroup.map(batch => scoreBatch(batch, apiKey, translate));
+    const promises = batchGroup.map(batch => scoreBatch(batch, client, translate));
     
     const results = await Promise.all(promises);
     
@@ -382,16 +335,10 @@ export async function scoreTweetsWithAI(
 // Utility Exports
 // ============================================================================
 
-export function isApiKeyConfigured(): boolean {
-  return !!process.env.GEMINI_API_KEY;
-}
-
 export async function generateHighlights(
   tweets: AIScoredTweet[],
+  client: AIClient,
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return '';
-
   const tweetList = tweets.slice(0, 10).map((t, i) =>
     `${i + 1}. [${t.aiScore.category}] ${t.aiScore.title || t.text.slice(0, 60)} — @${t.authorUsername}`
   ).join('\n');
@@ -409,7 +356,7 @@ ${tweetList}
 直接返回纯文本总结，不要 JSON，不要 markdown 格式。`;
 
   try {
-    const text = await callGemini(prompt, apiKey);
+    const text = await client.generate(prompt);
     return text.trim();
   } catch (error) {
     console.warn(`[ai-scorer] Highlights generation failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -419,10 +366,8 @@ ${tweetList}
 
 export async function generateTopicSuggestions(
   tweets: AIScoredTweet[],
+  client: AIClient,
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return '';
-
   const tweetList = tweets.slice(0, 15).map((t, i) => {
     const score = t.aiScore;
     return `${i + 1}. [${score.category}] ${score.title || t.text.slice(0, 80)}\n   摘要: ${score.summary || t.text.slice(0, 100)}\n   互动: ❤️${t.likes} 🔄${t.retweets} 💬${t.replies}`;
@@ -452,7 +397,7 @@ ${tweetList}
 }`;
 
   try {
-    const responseText = await callGemini(prompt, apiKey);
+    const responseText = await client.generate(prompt);
     let jsonText = responseText.trim();
     if (jsonText.startsWith('```')) {
       jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');

@@ -10,7 +10,8 @@ import {
   sleep,
   waitForChromeDebugPort,
 } from './x-utils.js';
-import { scoreTweetsWithAI, isApiKeyConfigured, generateHighlights, generateTopicSuggestions, type AIScoredTweet } from './ai-scorer.js';
+import { scoreTweetsWithAI, generateHighlights, generateTopicSuggestions, type AIScoredTweet } from './ai-scorer.js';
+import { createAIClient, isAIProviderAvailable, type AIClient } from './ai-client.js';
 import { generateReport, generateDigestReport } from './report-generator.js';
 
 // Parallel thread expansion settings
@@ -68,13 +69,13 @@ interface TopicSelectorOptions {
   chromePath?: string;
 }
 
-function calculateDataScore(tweet: Tweet, maxRawScore: number): number {
+export function calculateDataScore(tweet: Tweet, maxRawScore: number): number {
   if (maxRawScore === 0) return 0;
   const rawScore = tweet.likes + (tweet.retweets * 3) + (tweet.replies * 2) + (tweet.views * 0.01);
   return rawScore / maxRawScore;
 }
 
-function calculateTotalScore(
+export function calculateTotalScore(
   tweet: ScoredTweet, 
   options: ScoringOptions
 ): number {
@@ -88,12 +89,12 @@ function calculateTotalScore(
   return 3;
 }
 
-function filterByCategory(tweets: ScoredTweet[], category: string): ScoredTweet[] {
+export function filterByCategory(tweets: ScoredTweet[], category: string): ScoredTweet[] {
   if (category === 'all') return tweets;
   return tweets.filter(t => t.aiScore?.category === category);
 }
 
-function filterAndScoreTweets(tweets: Tweet[], options: ScoringOptions): ScoredTweet[] {
+export function filterAndScoreTweets(tweets: Tweet[], options: ScoringOptions): ScoredTweet[] {
   let filtered = tweets;
   
   if (options.keywords.length > 0) {
@@ -138,7 +139,7 @@ interface ParsedSource {
   displayName: string;
 }
 
-function parseSourceUrl(input: string): ParsedSource {
+export function parseSourceUrl(input: string): ParsedSource {
   const trimmed = input.trim();
   
   // List: numeric ID or full URL
@@ -785,10 +786,12 @@ function printUsage(): never {
     --help                   Show this help
  
    Scoring Options:
-   --score-mode <mode>      Scoring mode: data-only, ai-only (default: data-only)
+    --score-mode <mode>      Scoring mode: data-only, ai-only (default: data-only)
                              - data-only: 基于互动数据（点赞×1 + 转发×3 + 评论×2 + 浏览×0.01）
-                             - ai-only: 基于 AI 分析（创新度 + 影响力 + 实用性，需要 GEMINI_API_KEY）
-   --keywords <k1,k2>       Comma-separated keywords to filter tweets
+                             - ai-only: 基于 AI 分析（创新度 + 影响力 + 实用性）
+    --ai-provider <provider> AI provider: 'auto-detect' (default), 'gemini', 'openai'
+    --keywords <k1,k2>       Comma-separated keywords to filter tweets
+
    --exclude <e1,e2>        Comma-separated keywords to exclude tweets
    --top-n <n>              Number of top tweets to return (default: 10)
 
@@ -807,30 +810,22 @@ function printUsage(): never {
 
 async function buildDigestReport(
   scoredTweets: ScoredTweet[],
+  client: AIClient,
   totalTweets: number,
   filteredTweets: number,
 ): Promise<string> {
   const aiScoredTweets = scoredTweets
     .filter((t): t is ScoredTweet & { aiScore: AIScoredTweet['aiScore'] } => !!t.aiScore)
     .map(t => ({
-      text: t.text,
-      authorUsername: t.authorUsername,
-      authorDisplayName: t.authorDisplayName,
-      likes: t.likes,
-      retweets: t.retweets,
-      replies: t.replies,
-      views: t.views,
-      time: t.time,
-      url: t.url,
-      isRetweet: t.isRetweet,
-      aiScore: t.aiScore,
+      ...t,
+      aiScore: t.aiScore!,
     }));
 
   console.log('[x-topic-selector] Generating highlights...');
-  const highlights = await generateHighlights(aiScoredTweets);
+  const highlights = await generateHighlights(aiScoredTweets, client);
 
   console.log('[x-topic-selector] Generating topic suggestions...');
-  const topicSuggestions = await generateTopicSuggestions(aiScoredTweets);
+  const topicSuggestions = await generateTopicSuggestions(aiScoredTweets, client);
 
   return generateDigestReport(scoredTweets, {
     totalTweets,
@@ -840,7 +835,7 @@ async function buildDigestReport(
   });
 }
 
-function toScoredTweet(tweet: Tweet, aiScore?: AIScoredTweet['aiScore']): ScoredTweet {
+export function toScoredTweet(tweet: Tweet, aiScore?: AIScoredTweet['aiScore']): ScoredTweet {
   const totalScore = aiScore
     ? aiScore.innovation + aiScore.practicality + aiScore.influence
     : 0;
@@ -855,6 +850,7 @@ async function main(): Promise<void> {
   let maxTweets = 200;
   let dryRun = false;
   let digestMode = false;
+  let aiProvider = 'auto-detect';
   let profileDir: string | undefined;
   let outputPath: string | undefined;
 
@@ -882,6 +878,12 @@ async function main(): Promise<void> {
       outputPath = args[++i];
     } else if (arg === '--score-mode' && args[i + 1]) {
       scoringOptions.scoreMode = args[++i] as 'data-only' | 'ai-only';
+    } else if (arg === '--ai-provider' && args[i + 1]) {
+      aiProvider = args[++i]!;
+      if (!['auto-detect', 'gemini', 'openai'].includes(aiProvider)) {
+        console.error(`Error: Invalid AI provider '${aiProvider}'. Valid values: auto-detect, gemini, openai`);
+        process.exit(1);
+      }
     } else if (arg === '--keywords' && args[i + 1]) {
       scoringOptions.keywords = args[++i]!.split(',').map(k => k.trim());
     } else if (arg === '--exclude' && args[i + 1]) {
@@ -898,6 +900,7 @@ async function main(): Promise<void> {
       sourceUrl = 'https://x.com/i/bookmarks';
     }
     scoringOptions.scoreMode = 'ai-only';
+    
     if (scoringOptions.topN === 10) scoringOptions.topN = 15;
   }
 
@@ -908,17 +911,19 @@ async function main(): Promise<void> {
 
   const source = parseSourceUrl(sourceUrl);
 
+  const aiClient = createAIClient({ provider: aiProvider as any });
+
   // Bookmark extraction pipeline: bypass filtering, preserve all content with AI analysis
   if (source.type === 'bookmarks') {
-    if (!isApiKeyConfigured()) {
-      throw new Error('Bookmark mode requires GEMINI_API_KEY for AI analysis. Set it via env or config.');
+    if (!isAIProviderAvailable(aiProvider)) {
+      throw new Error('Bookmark mode requires an AI provider. Set GEMINI_API_KEY or (OPENAI_API_KEY + OPENAI_MODEL + OPENAI_API_BASE).');
     }
 
     const tweets = await scrapeTweets({ sourceUrl, maxTweets, dryRun, profileDir });
 
     if (tweets.length === 0) {
       console.log('[x-topic-selector] No bookmarks found.');
-      const emptyReport = await buildDigestReport([], 0, 0);
+      const emptyReport = await buildDigestReport([], aiClient!, 0, 0);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const finalPath = outputPath || `bookmark-digest-${timestamp}.md`;
       await writeFile(finalPath, emptyReport);
@@ -927,7 +932,7 @@ async function main(): Promise<void> {
     }
 
     console.log(`[x-topic-selector] Bookmark mode: ${tweets.length} tweets scraped, running AI analysis...`);
-    const aiScoredTweets = await scoreTweetsWithAI(tweets, { translate: true });
+    const aiScoredTweets = await scoreTweetsWithAI(tweets, aiClient!, { translate: true });
     const scoredTweets: ScoredTweet[] = tweets.map((tweet, i) =>
       toScoredTweet(tweet, aiScoredTweets[i]?.aiScore)
     );
@@ -944,7 +949,7 @@ async function main(): Promise<void> {
       console.log(`Total bookmarks: ${tweets.length}`);
       console.log(`All ${scoredTweets.length} bookmarks included in digest.`);
 
-      const report = await buildDigestReport(scoredTweets, tweets.length, tweets.length);
+      const report = await buildDigestReport(scoredTweets, aiClient!, tweets.length, tweets.length);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const finalPath = outputPath || `bookmark-digest-${timestamp}.md`;
       await writeFile(finalPath, report);
@@ -958,12 +963,12 @@ async function main(): Promise<void> {
   
   let processedTweets: Tweet[] = tweets;
   if (scoringOptions.scoreMode === 'ai-only') {
-    if (!isApiKeyConfigured()) {
-      console.warn('[x-topic-selector] GEMINI_API_KEY not set. Falling back to data-only mode.');
+    if (!isAIProviderAvailable(aiProvider)) {
+      console.warn('[x-topic-selector] No AI provider configured. Falling back to data-only mode.');
       scoringOptions.scoreMode = 'data-only';
     } else {
       console.log('[x-topic-selector] AI scoring enabled, analyzing tweets...');
-      processedTweets = await scoreTweetsWithAI(tweets, { translate: true }) as any;
+      processedTweets = await scoreTweetsWithAI(tweets, aiClient!, { translate: true }) as any;
     }
   }
 
@@ -986,7 +991,7 @@ async function main(): Promise<void> {
     }
 
     const report = digestMode
-      ? await buildDigestReport(scoredTweets, tweets.length, processedTweets.length)
+      ? await buildDigestReport(scoredTweets, aiClient!, tweets.length, processedTweets.length)
       : generateReport(scoredTweets, {
           scoreMode: scoringOptions.scoreMode,
           totalTweets: tweets.length,
@@ -1007,7 +1012,9 @@ async function main(): Promise<void> {
 }
 
 
-await main().catch((err) => {
-  console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
-  process.exit(1);
-});
+if (import.meta.main) {
+  await main().catch((err) => {
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  });
+}

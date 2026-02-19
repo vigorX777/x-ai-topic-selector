@@ -84,7 +84,7 @@ const STOP_WORDS = new Set([
   'https', 'http', 'www', 'com', 'co', 'amp', 'rt', 'via',
 ]);
 
-function extractKeywords(tweets: ScoredTweet[]): Map<string, number> {
+export function extractKeywords(tweets: ScoredTweet[]): Map<string, number> {
   const wordCount = new Map<string, number>();
   
   for (const tweet of tweets) {
@@ -110,7 +110,7 @@ function extractKeywords(tweets: ScoredTweet[]): Map<string, number> {
   return wordCount;
 }
 
-function generateKeywordChart(tweets: ScoredTweet[]): string {
+export function generateKeywordChart(tweets: ScoredTweet[]): string {
   const wordCount = extractKeywords(tweets);
   
   const topKeywords = Array.from(wordCount.entries())
@@ -139,7 +139,7 @@ function generateKeywordChart(tweets: ScoredTweet[]): string {
   return section;
 }
 
-function generateEngagementTop3(tweets: ScoredTweet[]): string {
+export function generateEngagementTop3(tweets: ScoredTweet[]): string {
   const sorted = [...tweets].sort((a, b) => {
     const engagementA = a.likes + a.retweets + a.replies;
     const engagementB = b.likes + b.retweets + b.replies;
@@ -162,7 +162,7 @@ function generateEngagementTop3(tweets: ScoredTweet[]): string {
   return section;
 }
 
-function generateCategoryPieChart(tweets: ScoredTweet[]): string {
+export function generateCategoryPieChart(tweets: ScoredTweet[]): string {
   const catCount = new Map<string, number>();
   for (const t of tweets) {
     const cat = t.aiScore?.category || 'other';
@@ -186,7 +186,7 @@ function generateCategoryPieChart(tweets: ScoredTweet[]): string {
   return chart;
 }
 
-function generateAsciiBarChart(tweets: ScoredTweet[]): string {
+export function generateAsciiBarChart(tweets: ScoredTweet[]): string {
   const keywords = extractKeywords(tweets);
 
   const sorted = Array.from(keywords.entries())
@@ -210,7 +210,7 @@ function generateAsciiBarChart(tweets: ScoredTweet[]): string {
   return chart;
 }
 
-function generateTagCloud(tweets: ScoredTweet[]): string {
+export function generateTagCloud(tweets: ScoredTweet[]): string {
   const tagCount = new Map<string, number>();
   for (const t of tweets) {
     if (t.aiScore?.tags) {
@@ -234,7 +234,7 @@ function generateTagCloud(tweets: ScoredTweet[]): string {
     .join(' · ');
 }
 
-function hasEnglishContent(text: string): boolean {
+export function hasEnglishContent(text: string): boolean {
   const englishWords = text.match(/[a-zA-Z]{4,}/g) || [];
   return englishWords.length >= 3;
 }
@@ -314,6 +314,10 @@ export function generateReport(tweets: ScoredTweet[], options: ReportOptions): s
     report += `---\n\n`;
   });
   
+  const timestamp = new Date();
+  report += `*生成于 ${now} ${timestamp.toISOString().split('T')[1]?.slice(0, 5) || ''} | 扫描 ${options.totalTweets} 条 → 精选 ${topN} 条*\n`;
+  report += `*由公众号「懂点儿AI」开发维护，如有问题或建议欢迎关注公众号反馈 💡*\n`;
+
   return report;
 }
 
@@ -464,7 +468,7 @@ export function generateDigestReport(tweets: ScoredTweet[], options: DigestOptio
     ? `收录 ${tweets.length} 条书签`
     : `扫描 ${options.totalTweets} 条 → 精选 ${tweets.length} 条`;
   report += `*生成于 ${dateStr} ${now.toISOString().split('T')[1]?.slice(0, 5) || ''} | ${footerStats}*\n`;
-  report += `*由「懂点儿AI」制作，欢迎关注同名微信公众号获取更多 AI 实用技巧 💡*\n`;
+  report += `*由公众号「懂点儿AI」开发维护，如有问题或建议欢迎关注公众号反馈 💡*\n`;
 
   return report;
 }

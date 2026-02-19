@@ -1,5 +1,6 @@
 node_modules/
 output/
+tests/
 .DS_Store
 *.log
 .env

@@ -10,6 +10,9 @@ Twitter/X topic selector skill for AI agents. Scrapes tweets via Chrome CDP, sco
 # Type-check (no emit — tsconfig has "noEmit": true)
 bunx tsc --noEmit
 
+# Run unit tests (61 tests across 3 files)
+bun test
+
 # Run main script (requires Chrome + X login)
 bun run scripts/x-topic-selector.ts <source-url> [options]
 
@@ -20,7 +23,11 @@ bun run scripts/x-topic-selector.ts 1234567890 --dry-run --max-tweets 10
 bun run scripts/x-topic-selector.ts "https://x.com/i/lists/123" --score-mode ai-only --top-n 5
 ```
 
-**No test framework is configured.** There are no unit tests. Validation is done via `--dry-run` and manual inspection of output reports in `./output/`.
+**Test Suite**: Bun built-in test runner with 61 test cases covering:
+- 17 pure functions (data scoring, filtering, keyword extraction, report formatting)
+- 6 API integration functions (AIClient mock-based testing via `MockAIClient`)
+- Test files located in `tests/` directory
+- No E2E tests for Chrome CDP (explicitly excluded)
 
 **No linter or formatter is configured.** Follow the implicit conventions documented below.
 
@@ -29,9 +36,14 @@ bun run scripts/x-topic-selector.ts "https://x.com/i/lists/123" --score-mode ai-
 ```
 scripts/
   x-topic-selector.ts   # Main entry — CLI parsing, Chrome launch, tweet scraping, orchestration
-  ai-scorer.ts           # Gemini API integration — batch scoring with concurrency control
+  ai-client.ts           # AI client abstraction — AIClient interface, GeminiClient, OpenAICompatibleClient, factory
+  ai-scorer.ts           # AI scoring logic — batch scoring with concurrency control
   report-generator.ts    # Markdown report generation — engagement stats, keyword charts, recommendations
   x-utils.ts             # Chrome CDP connection, port management, platform-specific Chrome discovery
+tests/
+  x-topic-selector.test.ts   # Unit tests for main entry functions (20 tests)
+  ai-scorer.test.ts          # Unit tests for AI scoring functions (18 tests)
+  report-generator.test.ts   # Unit tests for report generation (21 tests)
 SKILL.md                 # Agent interaction definition (question flows, parameter mapping)
 output/                  # Generated reports (gitignored)
 ```
@@ -122,7 +134,11 @@ output/                  # Generated reports (gitignored)
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `GEMINI_API_KEY` | AI mode only | Gemini API key for content scoring |
+| `GEMINI_MODEL` | No (default: gemini-2.0-flash) | Gemini model name (e.g., `gemini-1.5-pro`, `gemini-2.0-flash`) |
 | `X_BROWSER_CHROME_PATH` | No | Override Chrome executable path |
+| `OPENAI_API_KEY` | AI mode only (OpenAI provider) | OpenAI-compatible API key (e.g., DeepSeek) |
+| `OPENAI_API_BASE` | No (default: https://api.openai.com/v1) | OpenAI-compatible API base URL |
+| `OPENAI_MODEL` | Required for OpenAI provider | Model name (e.g., `deepseek-chat`). No default — must be explicit |
 
 ## Config Persistence
 
@@ -137,6 +153,7 @@ User config stored at `~/.x-topic-selector/config.json`. The agent workflow (SKI
 5. **Thread expansion**: Parallel tab-per-thread with retry fallback to main session
 6. **Truncated tweet expansion**: Navigate to detail page, extract full text
 7. **Graceful degradation**: AI mode falls back to data-only if no API key
+8. **AI provider abstraction**: All AI calls go through `AIClient.generate()`, never direct HTTP
 
 ---
 
@@ -330,10 +347,12 @@ if (source.type === 'bookmarks') {
 
 | Module | Lines | Core Responsibilities | Key Functions |
 |--------|-------|----------------------|---------------|
-| `x-topic-selector.ts` | 489 | CLI parsing, Chrome orchestration, mode routing | `main()`, `scrapeTweets()`, `toScoredTweet()` |
-| `ai-scorer.ts` | 315 | Gemini API batch scoring, concurrency control | `scoreTweetsWithAI()`, `batchAnalyze()` |
-| `report-generator.ts` | 287 | Markdown generation, engagement stats, keyword charts | `generateDigestReport()`, `generateTopicReport()` |
-| `x-utils.ts` | 143 | CDP connection, Chrome discovery, platform utilities | `CdpConnection`, `findChrome()`, `sleep()` |
+| `x-topic-selector.ts` | 1020 | CLI parsing, Chrome orchestration, mode routing | `main()`, `scrapeTweets()`, `toScoredTweet()` |
+| `ai-client.ts` | 139 | AI provider abstraction, factory function, auto-detection | `AIClient`, `GeminiClient`, `OpenAICompatibleClient`, `createAIClient()` |
+| `ai-scorer.ts` | 421 | AI scoring logic, batch concurrency control | `scoreTweetsWithAI()`, `batchAnalyze()` |
+| `report-generator.ts` | 470 | Markdown generation, engagement stats, keyword charts | `generateDigestReport()`, `generateTopicReport()` |
+| `x-utils.ts` | 219 | CDP connection, Chrome discovery, platform utilities | `CdpConnection`, `findChrome()`, `sleep()` |
+| `tests/*.test.ts` | 61 tests | Unit tests for all pure functions and API mocks | 61 test cases with Bun test runner |
 
 ### Data Scoring Formula
 

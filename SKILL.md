@@ -53,6 +53,7 @@ Agent 在执行前**必须检查**此文件是否存在：
   "sourceType": "list|home|bookmarks",
   "listUrls": ["https://x.com/i/lists/xxx"],
   "scoreMode": "data-only|ai-only",
+  "aiProvider": "auto|gemini|openai",
   "geminiApiKey": "",
   "topicCategory": "all",
   "maxTweets": 200,
@@ -96,7 +97,7 @@ cat ~/.x-topic-selector/config.json 2>/dev/null || echo "NO_CONFIG"
 question({
   questions: [{
     header: "使用已保存配置",
-    question: "检测到上次使用的配置：\n\n• 内容来源: ${config.sourceType || 'list'}\n• 列表 URL: ${config.listUrls.join(', ')}\n• 评分模式: ${config.sourceType === 'bookmarks' ? 'AI 分析 (书签模式必选)' : config.scoreMode}\n• 扫描数量: ${config.maxTweets}\n• 推荐数量: ${config.sourceType === 'bookmarks' ? '全部书签' : config.topN}\n\n请选择操作：",
+    question: "检测到上次使用的配置：\n\n• 内容来源: ${config.sourceType || 'list'}\n• 列表 URL: ${config.listUrls.join(', ')}\n• 评分模式: ${config.sourceType === 'bookmarks' ? 'AI 全量分析 (书签模式自动应用)' : (config.scoreMode === 'ai-only' ? 'AI 分析' : '数据分析')}\n• 扫描数量: ${config.maxTweets}\n• 推荐数量: ${config.sourceType === 'bookmarks' ? '全量提取' : config.topN}\n\n请选择操作：",
     options: [
       { label: "使用上次配置直接运行 (Recommended)", description: "使用所有已保存的参数立即开始" },
       { label: "重新配置全部", description: "从头开始配置所有参数" }
@@ -115,6 +116,7 @@ question({
 
 ```
 📊 X AI 选题助手
+由公众号「懂点儿AI」开发维护，如有问题或建议欢迎关注公众号反馈。
 
 在开始之前，请确保：
 ✅ 已安装 Google Chrome 浏览器
@@ -139,22 +141,32 @@ question({
       options: [
         { label: `X 列表 (List)${config?.sourceType === 'list' ? ' (上次选择)' : ''}`, description: "扫描指定的 Twitter 列表，选择后需要输入列表 URL" },
         { label: `推荐 (For You)${config?.sourceType === 'home' ? ' (上次选择)' : ''}`, description: "扫描 X 推荐的内容" },
-        { label: `书签 (Bookmarks)${config?.sourceType === 'bookmarks' ? ' (上次选择)' : ''}`, description: "扫描你收藏的推文（自动进入 AI 全量提取模式）" }
+        { label: `书签 (Bookmarks)${config?.sourceType === 'bookmarks' ? ' (上次选择)' : ''}`, description: "扫描你收藏的推文（自动进入 AI 深度分析模式，全量提取）" }
       ]
     },
     // Q2: 评分模式 (仅非书签模式)
     {
       header: "评分模式",
-      question: "请选择选题评分模式",
+      question: "请选择选题评分模式 (书签模式下自动使用 AI 分析)",
       options: [
         { label: `数据分析模式 (Recommended)${config?.scoreMode === 'data-only' ? ' (上次选择)' : ''}`, description: "基于互动数据评分，无需 API Key" },
         { label: `AI 分析模式${config?.scoreMode === 'ai-only' ? ' (上次选择)' : ''}`, description: "基于 AI 内容分析，需要 Gemini API Key" }
       ]
     },
+    // Q2b: AI 服务商 (仅 AI 分析模式或书签模式)
+    {
+      header: "AI 服务商",
+      question: "请选择 AI 分析使用的服务商（书签模式同样适用）",
+      options: [
+        { label: `自动检测 (Recommended)${config?.aiProvider === 'auto' || !config?.aiProvider ? ' (上次选择)' : ''}`, description: "按优先级自动选择：Gemini → OpenAI 兼容接口" },
+        { label: `Gemini${config?.aiProvider === 'gemini' ? ' (上次选择)' : ''}`, description: "使用 Google Gemini API（需要 GEMINI_API_KEY）" },
+        { label: `OpenAI 兼容${config?.aiProvider === 'openai' ? ' (上次选择)' : ''}`, description: "使用 OpenAI 兼容接口（需要 OPENAI_API_KEY + OPENAI_MODEL）如 DeepSeek" }
+      ]
+    },
     // Q3: 选题范围 (仅非书签模式)
     {
       header: "选题范围",
-      question: "请选择要关注的选题范围",
+      question: "请选择要关注的选题范围 (书签模式下将分析全部内容)",
       options: [
         { label: `不限 (Recommended)${config?.topicCategory === 'all' ? ' (上次选择)' : ''}`, description: "显示所有类型的选题" },
         { label: `AI 工具/产品发布${config?.topicCategory === 'ai-tools' ? ' (上次选择)' : ''}`, description: "新工具、新功能、产品更新" },
@@ -177,7 +189,7 @@ question({
     // Q5: 推荐条数 (仅非书签模式)
     {
       header: "推荐条数",
-      question: "请选择要推荐的选题数量",
+      question: "请选择要推荐的选题数量 (书签模式下将提取全部)",
       options: [
         { label: `5 条${config?.topN === 5 ? ' (上次选择)' : ''}`, description: "精选推荐" },
         { label: `10 条 (Recommended)${config?.topN === 10 ? ' (上次选择)' : ''}`, description: "标准推荐" },
@@ -189,8 +201,14 @@ question({
 ```
 
 **路由逻辑**:
-- **如果用户选择 "书签 (Bookmarks)"**: 仅需额外确认 "扫描数量"。自动设置 `scoreMode = ai-only`。
+- **如果用户选择 "书签 (Bookmarks)"**: 仅收集 "扫描数量"。自动设置 `scoreMode = ai-only`，忽略选题范围和推荐条数（全量提取）。
 - **如果用户选择 "X 列表" 或 "推荐"**: 执行完整参数收集流程。
+
+**AI 服务商路由逻辑**:
+- **如果用户选择 "自动检测"**: 不传 `--ai-provider` 参数，脚本自动按优先级检测可用的 API Key。
+- **如果用户选择 "Gemini"**: 传 `--ai-provider gemini`。
+- **如果用户选择 "OpenAI 兼容"**: 传 `--ai-provider openai`。
+- **如果用户选择 "数据分析模式" 且非书签来源**: AI 服务商选择可忽略（不使用 AI）。
 
 #### A. 已移除书签模式独立流程 (已合并到 Step 2)
 
@@ -210,13 +228,20 @@ Step 2 现在一次性收集所有参数。如果 Source = Bookmarks，脚本会
 question({
   questions: [{
     header: "X 列表 URL",
-    question: "请输入要扫描的 X 列表 URL 地址（支持多个，用逗号分隔）\n\n示例格式：https://x.com/i/lists/1234567890${config?.listUrls?.[0] ? `\n\n📌 上次使用: ${config.listUrls.join(', ')}` : ''}",
-    options: config?.listUrls?.[0] ? [{ label: config.listUrls.join(', '), description: "复用上次输入的 URL" }] : []
+    question: "请输入要扫描的 X 列表 URL 地址（支持多个，用逗号分隔）\n\n示例格式：https://x.com/i/lists/1234567890\n\n💡 推荐尝试使用「AI 精选」列表，可获取高质量 AI 领域内容。${config?.listUrls?.[0] ? `\n\n📌 上次使用: ${config.listUrls.join(', ')}` : ''}",
+    options: [
+      ...(config?.listUrls?.[0] ? [{ label: config.listUrls.join(', '), description: "复用上次输入的 URL" }] : []),
+      { label: "https://x.com/i/lists/2021198996157710621", description: "「AI 精选」推荐列表 — 优质 AI 内容源" }
+    ]
   }]
 })
 ```
 
 #### 如果进入了 "书签模式" 或选择了 "AI 分析模式"
+
+**根据用户选择的 AI 服务商**，检查对应的 API Key 和环境变量：
+
+##### 如果用户选择 "Gemini" 或 "自动检测"
 
 **必须检查** Gemini API Key：
 
@@ -232,6 +257,34 @@ question({
 
 **注意**: 如果 `config.geminiApiKey` 已存在，跳过此步骤，直接使用已保存的 Key。
 
+##### 如果用户选择 "OpenAI 兼容"
+
+**必须检查** OpenAI 相关环境变量：
+- `OPENAI_API_KEY`（必需）— OpenAI 兼容接口的 API Key
+- `OPENAI_API_BASE`（可选）— 自定义 API 端点（如 DeepSeek: `https://api.deepseek.com/v1`）
+- `OPENAI_MODEL`（必需）— 模型名称（如 `deepseek-chat`、`gpt-4o`）
+
+```
+question({
+  questions: [{
+    header: "OpenAI API Key",
+    question: "OpenAI 兼容模式需要设置环境变量：\n\n• OPENAI_API_KEY（必需）\n• OPENAI_MODEL（必需，如 deepseek-chat）\n• OPENAI_API_BASE（可选，自定义端点）\n\n请确认环境变量已设置，或在此输入 OPENAI_API_KEY",
+    options: [
+      { label: "环境变量已设置", description: "已通过 export 设置 OPENAI_API_KEY 和 OPENAI_MODEL" }
+    ]
+  }]
+})
+```
+
+**注意**: 模型选择（`OPENAI_MODEL`）仅通过环境变量配置，不在交互流程中询问。
+
+##### 如果用户选择 "自动检测"
+
+Agent 按以下优先级检查可用的 API Key：
+1. 检查 `GEMINI_API_KEY` 环境变量或 `config.geminiApiKey`
+2. 检查 `OPENAI_API_KEY` 环境变量
+3. 如果都不可用，提示用户配置至少一个
+
 ### Step 3: 执行脚本
 
 收集完所有参数后，Agent 构建并执行命令：
@@ -240,13 +293,17 @@ question({
 # 确保输出目录存在
 mkdir -p ./output
 
-# 设置环境变量
-export GEMINI_API_KEY="用户提供的key"
+# 设置环境变量（根据 AI 服务商选择）
+export GEMINI_API_KEY="用户提供的key"          # Gemini 或自动检测模式
+# export OPENAI_API_KEY="用户提供的key"        # OpenAI 兼容模式
+# export OPENAI_MODEL="deepseek-chat"          # OpenAI 兼容模式（必需）
+# export OPENAI_API_BASE="https://api.deepseek.com/v1"  # OpenAI 兼容模式（可选）
 
 # 执行脚本 (Source = List/Home)
 bun run ${SKILL_DIR}/scripts/x-topic-selector.ts \
   "URL" \
   --score-mode <mode> \
+  --ai-provider <provider> \
   --max-tweets <count> \
   --topic-category <category> \
   --top-n <n> \
@@ -256,6 +313,7 @@ bun run ${SKILL_DIR}/scripts/x-topic-selector.ts \
 bun run ${SKILL_DIR}/scripts/x-topic-selector.ts \
   "https://x.com/i/bookmarks" \
   --digest \
+  --ai-provider <provider> \
   --max-tweets <count> \
   --output ./output/topic-report-{timestamp}.md
 ```
@@ -330,6 +388,9 @@ EOF
 |----------|----------|
 | 数据分析模式 | `--score-mode data-only` |
 | AI 分析模式 | `--score-mode ai-only` |
+| 自动检测 (AI 服务商) | (不传 `--ai-provider` 参数) |
+| Gemini | `--ai-provider gemini` |
+| OpenAI 兼容 | `--ai-provider openai` |
 | AI 工具/产品发布 | `--topic-category ai-tools` |
 | 行业新闻/动态 | `--topic-category industry-news` |
 | 技术突破/论文 | `--topic-category tech-breakthroughs` |
@@ -349,7 +410,11 @@ EOF
 
 - Google Chrome 或 Chromium 浏览器
 - `bun` 运行时
-- GEMINI_API_KEY 环境变量（仅混合/AI 模式需要）
+- GEMINI_API_KEY 环境变量（Gemini 模式或自动检测模式需要）
+- GEMINI_MODEL 环境变量（可选，默认 `gemini-2.0-flash`，可设置为 `gemini-1.5-pro` 等）
+- OPENAI_API_KEY 环境变量（OpenAI 兼容模式需要）
+- OPENAI_MODEL 环境变量（OpenAI 兼容模式必需，如 `deepseek-chat`、`gpt-4o`）
+- OPENAI_API_BASE 环境变量（OpenAI 兼容模式可选，自定义 API 端点）
 
 ---
 
@@ -397,7 +462,15 @@ EOF
 首次运行时，脚本会打开 Chrome 窗口等待登录。请在窗口中手动登录 X 账号。
 
 ### "GEMINI_API_KEY not set"
-混合/AI 模式需要设置 Gemini API Key，可以通过交互流程提供。
+Gemini 模式或自动检测模式需要设置 Gemini API Key，可以通过交互流程提供。
+
+### "OPENAI_API_KEY not set" 或 "OPENAI_MODEL not set"
+OpenAI 兼容模式需要设置以下环境变量：
+- `export OPENAI_API_KEY="your-api-key"`
+- `export OPENAI_MODEL="deepseek-chat"` （必需）
+- `export OPENAI_API_BASE="https://api.deepseek.com/v1"` （可选，自定义端点）
+
+如果使用自动检测模式（`--ai-provider` 未指定），需要至少配置 Gemini 或 OpenAI 其中之一。
 
 ### "No tweets found"
 - 检查列表 URL 是否正确
