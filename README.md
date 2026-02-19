@@ -24,6 +24,8 @@ X AI Topic Selector 是一个 Claude Agent 技能，帮内容创作者从 X (Twi
 - **扫描模式**：支持关键词过滤（包含/排除）、分类过滤（6 类）、数据或 AI 评分、Top N 排名
 - **书签模式**：强制 AI 分析，不做过滤和排名，目标是「理解辅助」而非质量筛选
 
+![双模式自动路由：扫描模式与书签模式对比](illustrations/01-comparison-dual-mode.png)
+
 ### AI 评分维度
 
 基于 Gemini API（默认 `gemini-2.0-flash`，可通过 `GEMINI_MODEL` 自定义）或 OpenAI 兼容 API，对每条推文进行多维分析：
@@ -37,6 +39,8 @@ X AI Topic Selector 是一个 Claude Agent 技能，帮内容创作者从 X (Twi
 - **中文标题 / 摘要**：为英文内容生成中文标题和摘要
 - **英文翻译**：英文原文的完整中文翻译（translation）
 - **关注理由**：一句话说明「为什么值得关注」（reason）
+
+![AI 评分维度：三维雷达图与智能分类](illustrations/03-infographic-ai-scoring.png)
 
 ### 数据评分
 
@@ -79,6 +83,8 @@ X AI Topic Selector 是一个 Claude Agent 技能，帮内容创作者从 X (Twi
 
 ## 架构概览
 
+![架构流程：从来源 URL 到报告生成的完整流水线](illustrations/02-flowchart-architecture.png)
+
 ```
 来源 URL → 自动路由 → Chrome CDP 抓取 → Thread/长文展开 → 评分/过滤 → 报告生成
                │                                                    │
@@ -95,6 +101,8 @@ X AI Topic Selector 是一个 Claude Agent 技能，帮内容创作者从 X (Twi
 | `ai-scorer.ts` | 421 | AI 评分逻辑：批量评分、并发控制、亮点/选题生成 |
 | `report-generator.ts` | 470 | Markdown 报告：扫描报告 + 书签日报，图表可视化 |
 | `x-utils.ts` | 219 | CDP 连接管理、Chrome 路径检测、平台工具函数 |
+
+![模块依赖关系：五大模块的数据流与协作](illustrations/04-infographic-modules.png)
 
 ### 技术栈
 
