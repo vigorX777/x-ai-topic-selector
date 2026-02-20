@@ -1,6 +1,9 @@
 # X AI Topic Selector
 
 智能 Twitter/X 选题助手 — 从海量推文中筛选精华，或深度分析收藏内容，给出选题意见。由公众号「**懂点儿AI**」开发维护。如有问题或建议，欢迎关注公众号反馈。
+![Uploading 扫码_搜索联合传播样式-白色版.png…]()
+
+
 ## 这是什么
 
 X AI Topic Selector 是一个 Claude Agent 技能，帮内容创作者从 X (Twitter) 上高效发现优质内容、生成结构化选题报告。由「懂点儿AI」开发维护。
